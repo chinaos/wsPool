@@ -1,16 +1,29 @@
-# wsPool
+package main
 
-#### 介绍
-golang websocket 连接池
+import (
+	"net/http"
+	"strings"
+	"wsPool"
+	"log"
+	"flag"
+)
 
-基于gorilla/websocket和protobuf实现
 
-同时支持各种类型的数据交互
+var addr = flag.String("addr", ":8080", "http service address")
 
+func serveHome(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL)
+	if r.URL.Path != "/" {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	http.ServeFile(w, r, "home.html")
+}
 
-#### examples
-
-```$xslt
 func main() {
 	flag.Parse()
 	//初骀化连接池
@@ -73,29 +86,5 @@ func main() {
 }
 
 
-```
 
-### 基层的protobuf格式
 
-```$xslt
-message SendMsg {
-  int32 cmd =1;
-  int64 timestamp  = 2;
-  string fromClientId =3;  //指令消息的来源。发送者的连接ID
-  string toClientId = 4;  //指令消息的接收者。发送给对应的客户端连接ID
-  bytes cmdData =5;  //对应指令的CmdData1的protobuf的message
-  string msgId=6;
-  int32 status=7;  //消息发送响应状态
-  string callbackMsg=8; //消息发送响应内容
-  string cmdkey=9;  //用于区分同一cmd多条指令的key 方便api调用针对同一指令不同回调的处理
-  int32 priority=10; //用于处理指令队列的优先级的权重值
-  int32 localId = 11; //用于手机本地数据库存储标志, 服务端不用管
-  string pageKey = 12; //用于页面发送指令和接收的指令相对应 如发送cmd2003和收到的cmd1000对应
-  repeated string channel = 13; //指定需要广播的频道，可以指定一个或多个频道
-  string pageId = 14;  //用于前端存储处理
-}
-
-```
-作者很懒惰！！
-
-其它看源码，和例子，很简单 ！
