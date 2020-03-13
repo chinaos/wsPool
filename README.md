@@ -76,6 +76,7 @@ func main() {
 ```
 
 ### 基层的protobuf格式
+除 toClientId,fromClientId,channel外 其它都可以随意定议，增减都可以。
 
 ```$xslt
 message SendMsg {
@@ -86,7 +87,7 @@ message SendMsg {
   bytes cmdData =5;  //对应指令的CmdData1的protobuf的message
   string msgId=6;
   int32 status=7;  //消息发送响应状态
-  string callbackMsg=8; //消息发送响应内容
+  string Msg=8; //消息发送字符串内容
   string cmdkey=9;  //用于区分同一cmd多条指令的key 方便api调用针对同一指令不同回调的处理
   int32 priority=10; //用于处理指令队列的优先级的权重值
   int32 localId = 11; //用于手机本地数据库存储标志, 服务端不用管
@@ -98,4 +99,4 @@ message SendMsg {
 ```
 作者很懒惰！！
 
-其它看源码，和例子，很简单 ！
+其它看源码和例子，有些注释，很简单 ！

@@ -8,11 +8,14 @@ package main
 
 import (
 	"flag"
+	"github.com/gogo/protobuf/proto"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"time"
+	"wsPool"
 
 	"github.com/gorilla/websocket"
 )
@@ -26,7 +29,7 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	u := url.URL{Scheme: "ws", Host: *addr, Path: "/echo"}
+	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
 	log.Printf("connecting to %s", u.String())
 	head := http.Header{}
 	head.Add("Sec-Websocket-Protocol", "12_1_2")
@@ -50,15 +53,22 @@ func main() {
 		}
 	}()
 
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(2*time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-done:
 			return
-		case t := <-ticker.C:
-			err := c.WriteMessage(websocket.TextMessage, []byte(t.String()))
+		case <-ticker.C:
+			msg:=&wsPool.SendMsg{
+				ToClientId:"13",
+				FromClientId:"12",
+				Msg:"test"+time.Now().String(),
+				Channel:[]string{"1","2"},
+			}
+			m,_:=proto.Marshal(msg)
+			err := c.WriteMessage(websocket.BinaryMessage, m)
 			if err != nil {
 				log.Println("write:", err)
 				return

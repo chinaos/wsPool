@@ -29,7 +29,7 @@ func main() {
 	//初骀化连接池
 	wsPool.InitWsPool(func(err interface{}) {
 		//接收连接池中的运行时错误信息
-		log.Panicln(err)
+		log.Println(err)
 	})
 	http.HandleFunc("/", serveHome)
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
@@ -50,12 +50,12 @@ func main() {
 
 		//连接成功回调
 		client.OnOpen(func() {
-			log.Panicln("连接己开启"+client.Id)
+			log.Println("连接己开启"+client.Id)
 		})
 
 		//接收消息
 		client.OnMessage(func(msg *wsPool.SendMsg) {
-			log.Panicln(msg)
+			log.Println(""+msg.Msg)
 			if msg.ToClientId!="" {
 				//发送消息给指定的ToClientID连接
 				wsPool.Send(msg)
@@ -72,10 +72,10 @@ func main() {
 		})
 		//连接断开回调
 		client.OnClose(func() {
-			log.Panicln("连接己经关闭"+client.Id)
+			log.Println("连接己经关闭"+client.Id)
 		})
 		client.OnError(func(err error) {
-			log.Panicln("连接",client.Id,"错误信息：",err)
+			log.Println("连接",client.Id,"错误信息：",err)
 		})
 
 	})
