@@ -18,7 +18,7 @@ func NewClient(conf *Config) *Client{
 		channel:conf.Channel,
 		hub: wsSever.hub,
 		Mutex: &sync.Mutex{},
-		send: make(chan []byte, 256),
+		sendCh: make(chan []byte, 256),
 		ping: make(chan int, 128),
 		IsClose:true,
 	}
@@ -36,6 +36,8 @@ func NewClient(conf *Config) *Client{
 // serveWs handles websocket requests from the peer.
 func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Header) {
 	defer dump();
+
+
 	conn, err := upgrader.Upgrade(w, r, head)
 	if err != nil {
 		if c.onError!=nil{
@@ -126,9 +128,7 @@ func (c *Client) Send(msg *SendMsg) error  {
 		return errors.New("连接ID："+c.Id+"生成protubuf数据失败！原因：:"+err.Error())
 	}
 	//log.Debug("连接：" + msg.ToClientId + "开始发送消息！");
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-	c.send<-data
+	c.send(data)
 	return nil
 }
 
@@ -141,26 +141,33 @@ func (c *Client) Broadcast(msg *SendMsg) error {
 	if  len(msg.Channel)==0 {
 		return errors.New("发送消息的消息体中未指定Channel频道！")
 	}
-	for client,ok:=range c.hub.clients  {
-		if !ok {
-			continue
-		}
+
+	wsSever.hub.clients.Iterator(func(client *Client,v bool ) bool {
+		//找到ToClientId对应的连接对象
 		if client.IsClose {
-			continue
+			return true
 		}
 		for _,ch:=range msg.Channel  {
 			if searchStrArray(client.channel,ch){
 				msg.ToClientId=client.Id
 				err := client.Send(msg)
 				if err != nil {
-					return errors.New("连接ID："+client.Id+"广播消息出现错误："+ err.Error())
+					client.onError(errors.New("连接ID："+client.Id+"广播消息出现错误："+ err.Error()))
 				}
 			}
 		}
-
-	}
-
+		return true
+	})
 	return nil
+}
+
+
+//服务主动关闭连接
+func (c *Client) Close() {
+	c.close()
+	c.ticker.Stop()
+	c.conn.Close()
+	c.hub.unregister<-c
 }
 
 

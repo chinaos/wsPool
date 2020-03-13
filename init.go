@@ -31,26 +31,25 @@ func Send(msg *SendMsg) error {
 	if msg.ToClientId=="" {
 		return errors.New("发送消息的消息体中未指定ToClient目标！")
 	}
-
-	for client,ok:=range wsSever.hub.clients  {
-		if !ok {
-			continue
-		}
+	var err error=nil
+	wsSever.hub.clients.Iterator(func(client *Client, v bool) bool {
 		//找到ToClientId对应的连接对象
 		if client.Id==msg.ToClientId{
 			if client.IsClose {
-				return errors.New("发送消息错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！")
+				err= errors.New("发送消息错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！")
+				return false
 			}
 			msg.ToClientId=client.Id
 			err := client.Send(msg)
 			if err != nil {
-				return errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。")
+				err=errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。")
+				return false
 			}
-			break;
+			return false
 		}
-	}
-
-	return nil
+		return true
+	})
+	return err
 }
 
 //通过连接池广播消息，每次广播只能指定一个类型下的一个频道
@@ -64,24 +63,23 @@ func Broadcast(msg *SendMsg) error {
 	if  len(msg.Channel)==0 {
 		return errors.New("发送消息的消息体中未指定Channel频道！")
 	}
-
-	for client, ok := range wsSever.hub.clients {
-		if !ok {
-			continue
-		}
+	wsSever.hub.clients.Iterator(func(client *Client,v bool ) bool {
+		//找到ToClientId对应的连接对象
 		if client.IsClose {
-			continue
+			return true
 		}
 		for _,ch:=range msg.Channel  {
 			if searchStrArray(client.channel,ch){
 				msg.ToClientId=client.Id
 				err := client.Send(msg)
 				if err != nil {
-					return errors.New("连接ID："+client.Id+"广播消息出现错误："+ err.Error())
+					client.onError(errors.New("连接ID："+client.Id+"广播消息出现错误："+ err.Error()))
 				}
 			}
 		}
-	}
+		return true
+	})
+
 	return nil
 }
 

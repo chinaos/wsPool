@@ -12,7 +12,7 @@ import (
 // clients.
 type hub struct {
 	// Registered clients.
-	clients map[*Client]bool
+	clients  *SafeMap
 
 	// Inbound messages from the clients.
 	//可以用于广播所有连接对象
@@ -42,7 +42,7 @@ func newHub() *hub {
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
+		clients:    NewSafeMap(),
 		reconectSendMsg: make(map[*oldMsg]string),
 	}
 }
@@ -53,7 +53,7 @@ func (h *hub) run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.clients[client] = true
+			h.clients.Set(client,true)
 			for oldmsg,clientid:=range h.reconectSendMsg{
 				if oldmsg==nil {
 					continue
@@ -66,7 +66,7 @@ func (h *hub) run() {
 					if len(oldmsg.list)>0 {
 						//有消息添加的channel中
 						for _,v:=range oldmsg.list{
-							client.send<-v
+							client.sendCh<-v
 						}
 					}
 				}
@@ -74,14 +74,14 @@ func (h *hub) run() {
 			}
 
 		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+			if h.clients.Check(client){
+				h.clients.Delete(client)
 				//此处需要把原来channel中没处理完的消息添加回队列中
-				n := len(client.send)
+				n := len(client.sendCh)
 				if n>0 {
 					list:=make([][]byte,0)
 					for i := 0; i < n; i++ {
-						msg,_:=<-client.send
+						msg,_:=<-client.sendCh
 						list=append(list,msg)
 					}
 					h.reconectSendMsg[&oldMsg{
@@ -89,19 +89,16 @@ func (h *hub) run() {
 						Expiration:time.Now().Add(60 * time.Second),
 					}]=client.Id
 				}
-				close(client.send)
+				close(client.sendCh)
 			}
 
 		case message := <-h.broadcast:
 			//全局广播消息处理
-			for client := range h.clients {
-				select {
-				case client.send <- message:
-					/*default:
-						close(client.send)
-						delete(h.clients, client)*/
-				}
-			}
+			h.clients.Iterator(func(k *Client, v bool) bool {
+				k.send(message)
+				return true
+			})
+
 
 		case <-ticker.C:
 			//定时清理连接断开后未处理的消息

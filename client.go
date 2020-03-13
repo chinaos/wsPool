@@ -69,7 +69,7 @@ type Client struct {
 	channel []string //连接注册频道类型方便广播等操作。做为一个数组存储。因为一个连接可以属多个频道
 	// Buffered channel of outbound messages.
 	*sync.Mutex               // 锁，主要是了为解决并发调用socket连接的问题
-	send chan []byte
+	sendCh chan []byte
 	ping chan int //收到ping的存储管道，方便回复pong处理
 	ticker  *time.Ticker //定时发送ping的定时器
 	onError func(error)
@@ -184,11 +184,11 @@ func (c *Client) writePump() {
 			break
 		}
 		select {
-		case message, ok := <-c.send:
+		case message, ok := <-c.sendCh:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
-				//c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				//glog.Error("连接ID："+c.Id,"wsServer发送消息失败,一般是连接channel已经被关闭：(此处服务端会断开连接，使客户端能够感知进行重连)")
 				return
 			}
@@ -203,9 +203,9 @@ func (c *Client) writePump() {
 				return
 			}
 			// Add queued chat messages to the current websocket message.
-			n := len(c.send)
+			n := len(c.sendCh)
 			for i := 0; i < n; i++ {
-				_,err=w.Write(<-c.send)
+				_,err=w.Write(<-c.sendCh)
 				if err != nil {
 					c.onError(errors.New("连接ID："+c.Id+"写上次连接未发送的消息消息进写入IO错误！连接中断"+err.Error()))
 					return
@@ -233,16 +233,31 @@ func (c *Client) writePump() {
 	}
 }
 
+
+func (c *Client) send(msg []byte)   {
+	if c.IsClose{
+		c.onError(errors.New("连接"+c.Id+",连接己在关闭，消息发送失败"))
+		return
+	}
+	select {
+	case c.sendCh<-msg:
+		return
+	default:
+		c.close()
+		c.hub.unregister<-c
+	}
+}
+
+
+
 func (c *Client) close() {
 	c.IsClose=true
 	//触发连接关闭的事件回调
+	c.OnError(nil)
+	c.OnOpen(nil)
+	c.OnMessage(nil)
+	c.OnClose(nil)
 	c.onClose()
 }
 
-//服务主动关闭连接
-func (c *Client) Close() {
-	c.close()
-	c.ticker.Stop()
-	c.conn.Close()
-	c.hub.unregister<-c
-}
+
