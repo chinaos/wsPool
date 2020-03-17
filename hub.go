@@ -5,6 +5,7 @@
 package wsPool
 
 import (
+	"errors"
 	"time"
 )
 
@@ -12,11 +13,17 @@ import (
 // clients.
 type hub struct {
 	// Registered clients.
-	clients  *SafeMap
+	clients  *SafeMap  //新的处理方式有没有线程效率会更高,所以SafeMap的锁处理都去掉了
 
 	// Inbound messages from the clients.
 	//可以用于广播所有连接对象
 	broadcast chan []byte
+
+	//广播指定频道的管道
+	chanBroadcast chan *SendMsg
+
+	//全局指定发消息通过ToClientId发送消息
+	sendByToClientId chan *SendMsg
 
 	// Register requests from the clients.
 	register chan *Client
@@ -39,10 +46,12 @@ type oldMsg struct {
 
 func newHub() *hub {
 	return &hub{
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    NewSafeMap(),
+		broadcast:  	make(chan []byte,1024),
+		chanBroadcast:  make(chan *SendMsg,2048),
+		sendByToClientId:  make(chan *SendMsg,2048),
+		register:   	make(chan *Client),
+		unregister: 	make(chan *Client),
+		clients:    	NewSafeMap(),
 		reconectSendMsg: make(map[*oldMsg]string),
 	}
 }
@@ -90,12 +99,56 @@ func (h *hub) run() {
 					}]=client.Id
 				}
 				close(client.sendCh)
+				close(client.ping)
 			}
 
 		case message := <-h.broadcast:
 			//全局广播消息处理
 			h.clients.Iterator(func(k *Client, v bool) bool {
 				k.send(message)
+				return true
+			})
+
+
+		case message := <-h.chanBroadcast:
+			//广播指定频道的消息处理
+			wsSever.hub.clients.Iterator(func(client *Client,v bool ) bool {
+				//找到ToClientId对应的连接对象
+				if client.IsClose {
+					return true
+				}
+				for _,ch:=range message.Channel  {
+					if searchStrArray(client.channel,ch){
+						message.ToClientId=client.Id
+						err := client.Send(message)
+						if err != nil {
+							client.onError(errors.New("连接ID："+client.Id+"广播消息出现错误："+ err.Error()))
+						}
+					}
+				}
+				return true
+			})
+
+
+
+		case message := <-h.sendByToClientId:
+
+			//包级发送消息指定sendByToClientId
+			wsSever.hub.clients.Iterator(func(client *Client, v bool) bool {
+				//找到ToClientId对应的连接对象
+				if client.Id==message.ToClientId{
+					if client.IsClose {
+						client.onError( errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！"))
+						return false
+					}
+					message.ToClientId=client.Id
+					err := client.Send(message)
+					if err != nil {
+						client.onError(errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。"))
+						return false
+					}
+					return false
+				}
 				return true
 			})
 

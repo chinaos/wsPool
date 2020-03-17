@@ -74,6 +74,8 @@ type Client struct {
 	ticker  *time.Ticker //定时发送ping的定时器
 	onError func(error)
 	onOpen func()  //连接成功的回调
+	onPing func()  //收到ping
+	onPong func()  //收到pong
 	onMessage func(*SendMsg)
 	onClose func()
 }
@@ -87,29 +89,11 @@ type Client struct {
 func (c *Client) readPump() {
 	defer func() {
 		dump()
-		c.close()
+		c.IsClose=true
 		c.hub.unregister<-c
 		c.conn.Close()
+		c.close()
 	}()
-	c.conn.SetReadLimit(maxMessageSize)
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(str string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait));
-		return nil
-	})
-	c.conn.SetPingHandler(func(str string) error {
-		c.ping<-1;
-		/*if err := c.conn.WriteMessage(websocket.PongMessage, nil); err != nil {
-			c.onError(errors.New("回复客户端PongMessage出现异常:"+err.Error()))
-		}*/
-		return nil
-	})
-	/*c.conn.SetCloseHandler(func(code int, str string) error {
-		//收到客户端连接关闭时的回调
-		glog.Error("连接ID："+c.Id,"SetCloseHandler接收到连接关闭状态:",code,"关闭信息：",str)
-		return nil
-	})*/
-
 	for {
 		if c.IsClose {
 			break
@@ -137,6 +121,7 @@ func (c *Client) readPump() {
 			c.onError(errors.New("连接ID："+c.Id+"ReadMessage other error:"+err.Error()))
 			break
 		}
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		c.readMessage(message)
 	}
 }
@@ -175,8 +160,8 @@ func (c *Client) writePump() {
 	c.ticker = time.NewTicker(pingPeriod)
 	defer func() {
 		dump()
+		c.IsClose=true
 		c.ticker.Stop()
-		//c.Close()
 		c.conn.Close()
 	}()
 	for {
@@ -188,6 +173,7 @@ func (c *Client) writePump() {
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
+				//说明管道己经关闭
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				//glog.Error("连接ID："+c.Id,"wsServer发送消息失败,一般是连接channel已经被关闭：(此处服务端会断开连接，使客户端能够感知进行重连)")
 				return
@@ -239,25 +225,27 @@ func (c *Client) send(msg []byte)   {
 		c.onError(errors.New("连接"+c.Id+",连接己在关闭，消息发送失败"))
 		return
 	}
-	select {
+	c.sendCh<-msg
+	/*select {
 	case c.sendCh<-msg:
 		return
 	default:
 		c.close()
 		c.hub.unregister<-c
-	}
+	}*/
 }
 
 
 
 func (c *Client) close() {
-	c.IsClose=true
 	//触发连接关闭的事件回调
+	c.onClose() //先执行完关闭回调，再请空所有的回调
 	c.OnError(nil)
 	c.OnOpen(nil)
+	c.OnPing(nil)
+	c.OnPong(nil)
 	c.OnMessage(nil)
 	c.OnClose(nil)
-	c.onClose()
 }
 
 

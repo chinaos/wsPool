@@ -2,10 +2,11 @@ package main
 
 import (
 	"net/http"
+	"runtime"
 	"strings"
-	"wsPool"
 	"log"
 	"flag"
+	"wsPool"
 )
 
 
@@ -24,7 +25,45 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "home.html")
 }
 
+var ch =make(chan int,10)
+func chfun(i int){
+	log.Println("写入管道i的值%d",i)
+	//ch<-i
+	select {
+	case ch<-i:
+		return
+	default:
+		log.Println("管道己经锁定；i的值"+string(i))
+	}
+}
+
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+
+
+	/*	for i:=0;i<10000 ;i++  {
+			go chfun(i)
+		}
+		close(ch)
+*/
+
+	/*for {
+		select {
+		case i,ok:=<-ch:
+			if !ok{
+				log.Println("管道己经关闭%d",i)
+			}
+			log.Println("读取i的值%d",i)
+
+		}
+	}
+*/
+
+
+
+
+
 	flag.Parse()
 	//初骀化连接池
 	wsPool.InitWsPool(func(err interface{}) {
@@ -50,12 +89,12 @@ func main() {
 
 		//连接成功回调
 		client.OnOpen(func() {
-			log.Println("连接己开启"+client.Id)
+			log.Printf("连接己开启%s",client.Id)
 		})
 
 		//接收消息
 		client.OnMessage(func(msg *wsPool.SendMsg) {
-			log.Println(""+msg.Msg)
+			//log.Println(""+msg.Msg)
 			if msg.ToClientId!="" {
 				//发送消息给指定的ToClientID连接
 				wsPool.Send(msg)
@@ -64,7 +103,7 @@ func main() {
 			}
 			if len(msg.Channel)>0{
 				//按频道广播，可指定多个频道[]string
-				client.Broadcast(msg) //或者 wsPool.Broadcast(msg)
+				wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
 			}
 			//或都全局广播，所有连接都进行发送
 			wsPool.BroadcastAll(msg)
@@ -72,16 +111,25 @@ func main() {
 		})
 		//连接断开回调
 		client.OnClose(func() {
-			log.Println("连接己经关闭"+client.Id)
+			log.Printf("连接己经关闭%s",client.Id)
 		})
 		client.OnError(func(err error) {
-			log.Println("连接",client.Id,"错误信息：",err)
+			log.Printf("连接%s错误信息：%s",client.Id,err.Error())
+		})
+
+		client.OnPong(func() {
+			log.Printf("收到连接的Pong:%s",client.Id)
+			//cache.PageApiPool.Remove(connOjb.Id)
+		})
+		client.OnPing(func() {
+			log.Printf("收到连接的Ping:%s",client.Id)
+			//cache.PageApiPool.Remove(connOjb.Id)
 		})
 
 	})
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Printf("ListenAndServe: %s", err.Error())
 	}
 }
 

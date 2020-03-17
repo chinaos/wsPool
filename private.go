@@ -46,7 +46,7 @@ func marshal(msg *SendMsg) ([]byte, error) {
 	message.MsgId = msg.MsgId
 	message.CmdData = msg.CmdData
 	message.Status = msg.Status
-	message.CallbackMsg = msg.CallbackMsg
+	message.Msg = msg.Msg
 	message.Cmdkey = msg.Cmdkey
 	message.Priority = msg.Priority
 	message.PageKey = msg.PageKey
@@ -71,7 +71,7 @@ func unMarshal(data []byte) (*SendMsg, error) {
 	message.MsgId = msg.MsgId
 	message.CmdData = msg.CmdData
 	message.Status = msg.Status
-	message.CallbackMsg = msg.CallbackMsg
+	message.Msg = msg.Msg
 	message.Cmdkey = msg.Cmdkey
 	message.Priority = msg.Priority
 	message.PageKey = msg.PageKey
