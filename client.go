@@ -8,8 +8,8 @@ import (
 	"errors"
 	"github.com/gorilla/websocket"
 	"net/http"
-	"sync"
 	"time"
+	"wsPool/grpool"
 )
 
 
@@ -68,7 +68,7 @@ type Client struct {
 	IsClose bool   //连接的状态。true为关闭
 	channel []string //连接注册频道类型方便广播等操作。做为一个数组存储。因为一个连接可以属多个频道
 	// Buffered channel of outbound messages.
-	*sync.Mutex               // 锁，主要是了为解决并发调用socket连接的问题
+	grpool *grpool.Pool
 	sendCh chan []byte
 	ping chan int //收到ping的存储管道，方便回复pong处理
 	ticker  *time.Ticker //定时发送ping的定时器
@@ -145,7 +145,9 @@ func (c *Client) readMessage(data []byte) {
 
 	//收到消息触发回调
 	if c.onMessage!=nil {
-		go c.onMessage(message)
+		c.grpool.Add(func() {
+			c.onMessage(message)
+		})
 	}
 
 }
@@ -239,7 +241,7 @@ func (c *Client) send(msg []byte)   {
 
 func (c *Client) close() {
 	//触发连接关闭的事件回调
-	c.onClose() //先执行完关闭回调，再请空所有的回调
+	c.grpool.Add(c.onClose) //先执行完关闭回调，再请空所有的回调
 	c.OnError(nil)
 	c.OnOpen(nil)
 	c.OnPing(nil)

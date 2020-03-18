@@ -3,8 +3,8 @@ package wsPool
 import (
 	"errors"
 	"net/http"
-	"sync"
 	"time"
+	"wsPool/grpool"
 )
 
 
@@ -17,10 +17,10 @@ func NewClient(conf *Config) *Client{
 		types:conf.Type,
 		channel:conf.Channel,
 		hub: wsSever.hub,
-		Mutex: &sync.Mutex{},
 		sendCh: make(chan []byte, 2048),
 		ping: make(chan int, 2048),
 		IsClose:true,
+		grpool:grpool.NewPool(10),
 	}
 	client.OnError(nil)
 	client.OnOpen(nil)
@@ -53,7 +53,7 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(str string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait));
-		go c.onPong()
+		c.grpool.Add(c.onPong)
 		return nil
 	})
 	c.conn.SetPingHandler(func(str string) error {
@@ -62,7 +62,7 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 		/*if err := c.conn.WriteMessage(websocket.PongMessage, nil); err != nil {
 			c.onError(errors.New("回复客户端PongMessage出现异常:"+err.Error()))
 		}*/
-		go c.onPing()
+		c.grpool.Add(c.onPing)
 		return nil
 	})
 	/*c.conn.SetCloseHandler(func(code int, str string) error {
