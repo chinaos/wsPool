@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"time"
-	"wsPool/grpool"
+	"gitee.com/rczweb/wsPool"
 )
 
 

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"log"
 	"flag"
-	"wsPool"
+	"gitee.com/rczweb/wsPool"
 )
 
 
