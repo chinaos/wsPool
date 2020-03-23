@@ -6,11 +6,10 @@ package wsPool
 
 import (
 	"errors"
+	"gitee.com/rczweb/wsPool/grpool"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
-	"gitee.com/rczweb/wsPool"
-	"wsPool/grpool"
 )
 
 
