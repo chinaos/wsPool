@@ -47,11 +47,13 @@ func marshal(msg *SendMsg) ([]byte, error) {
 	message.CmdData = msg.CmdData
 	message.Status = msg.Status
 	message.Msg = msg.Msg
+	message.CallbackMsg = msg.CallbackMsg
 	message.Cmdkey = msg.Cmdkey
 	message.Priority = msg.Priority
 	message.PageKey = msg.PageKey
 	message.Channel = msg.Channel
 	message.PageId = msg.PageId
+	message.Desc = msg.Desc
 	data, err := proto.Marshal(message)
 	return data, err
 }
@@ -77,6 +79,8 @@ func unMarshal(data []byte) (*SendMsg, error) {
 	message.PageKey = msg.PageKey
 	message.Channel = msg.Channel
 	message.PageId = msg.PageId
+	message.Desc = msg.Desc
+	message.CallbackMsg = msg.CallbackMsg
 	return message, err
 }
 
