@@ -12,6 +12,9 @@ import (
 第一步，实例化连接对像
 */
 func NewClient(conf *Config) *Client{
+	if conf.Goroutine==0{
+		conf.Goroutine=10
+	}
 	client := &Client{
 		Id:conf.Id,
 		types:conf.Type,
@@ -20,7 +23,7 @@ func NewClient(conf *Config) *Client{
 		sendCh: make(chan []byte, 2048),
 		ping: make(chan int, 2048),
 		IsClose:true,
-		grpool:grpool.NewPool(10),
+		grpool:grpool.NewPool(conf.Goroutine),
 	}
 	client.OnError(nil)
 	client.OnOpen(nil)

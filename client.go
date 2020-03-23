@@ -42,6 +42,7 @@ type Config struct {
 	Id              string    //标识连接的名称
 	Type            string    //连接类型或path
 	Channel []string //连接注册频道类型方便广播等操作。做为一个数组存储。因为一个连接可以属多个频道
+	Goroutine int //每个连接开启的go程数里 默认为10
 }
 
 type RuntimeInfo struct {
@@ -212,10 +213,15 @@ func (c *Client) writePump() {
 				c.onError(errors.New("连接ID："+c.Id+"关闭写入IO对象出错，连接中断"+err.Error()))
 				return
 			}
-		case <-c.ping:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PongMessage, nil); err != nil {
-				c.onError(errors.New("回复客户端PongMessage出现异常:"+err.Error()))
+		case p, ok :=<-c.ping:
+			if !ok {
+				continue
+			}
+			if p==1 {
+				c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := c.conn.WriteMessage(websocket.PongMessage, nil); err != nil {
+					c.onError(errors.New("回复客户端PongMessage出现异常:"+err.Error()))
+				}
 			}
 		}
 	}
@@ -241,7 +247,7 @@ func (c *Client) send(msg []byte)   {
 
 func (c *Client) close() {
 	//触发连接关闭的事件回调
-	c.grpool.Add(c.onClose) //先执行完关闭回调，再请空所有的回调
+	c.onClose() //先执行完关闭回调，再请空所有的回调
 	c.OnError(nil)
 	c.OnOpen(nil)
 	c.OnPing(nil)
