@@ -1,7 +1,7 @@
 syntax = "proto3";
 package wsPool;
 
-/*message SendMsg {
+message SendMsg {
   int32 cmd =1;
   int64 timestamp  = 2;
   string fromClientId =3;  //指令消息的来源。发送者的连接ID
@@ -18,8 +18,9 @@ package wsPool;
   string pageId = 14;  //用于前端存储处理
   string msg =15; //一般用于json数据传递
   string Desc=16; //消息介绍内容，或其它数据
-}*/
+}
 
+/*
 
 message SendMsg {
   int32 cmd =1;
@@ -35,3 +36,4 @@ message SendMsg {
   string msg =11; //一般用于json数据传递，或消息发送响应内容
   string Desc=12; //消息介绍内容，或其它数据
 }
+*/
