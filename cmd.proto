@@ -29,8 +29,8 @@ message SendMsg {
   bytes cmdData =5;  //对应指令的CmdData1的protobuf的message
   int32 status=6;  //消息发送响应状态
   int32 priority=7; //用于处理指令队列的优先级的权重值
-  int64 localId = 8; //客户端标识消息的id，主要区分相同cmd的不同消息，方便收到回复分发处理等效果
-  int64 serverId = 9; //服务端发送消息的ID,主要区分相同cmd的不同消息，方便服务端收到回复分发处理等效果
+  string localId = 8; //客户端标识消息的id，主要区分相同cmd的不同消息，方便收到回复分发处理等效果,考虑长度问题定义成string
+  string serverId = 9; //服务端发送消息的ID,主要区分相同cmd的不同消息，方便服务端收到回复分发处理等效果,考虑长度问题定义成string
   repeated string channel = 10; //指定需要广播的频道，可以指定一个或多个频道
   string msg =11; //一般用于json数据传递，或消息发送响应内容
   string Desc=12; //消息介绍内容，或其它数据
