@@ -44,6 +44,8 @@ func marshal(msg *SendMsg) ([]byte, error) {
 	message.FromClientId = msg.FromClientId
 	message.ToClientId = msg.ToClientId
 	message.CmdData = msg.CmdData
+	message.LocalId=msg.LocalId
+	message.ServerId=msg.ServerId
 	message.Status = msg.Status
 	message.Msg = msg.Msg
 	message.Priority = msg.Priority
@@ -67,6 +69,8 @@ func unMarshal(data []byte) (*SendMsg, error) {
 	message.ToClientId = msg.ToClientId
 	message.CmdData = msg.CmdData
 	message.Status = msg.Status
+	message.LocalId=msg.LocalId
+	message.ServerId=msg.ServerId
 	message.Msg = msg.Msg
 	message.Priority = msg.Priority
 	message.Channel = msg.Channel
