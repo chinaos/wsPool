@@ -157,6 +157,8 @@ func (c *Client) readMessage(data []byte) {
 }
 
 
+
+
 // writePump pumps messages from the hub to the websocket connection.
 //
 // A goroutine running writePump is started for each connection. The
@@ -234,6 +236,7 @@ func (c *Client) writePump() {
 
 func (c *Client) tickers() {
 	tk := time.NewTicker(10*time.Millisecond)
+	tk1 := time.NewTicker(10*time.Second)
 	defer func() {
 		tk.Stop()
 		dump()
@@ -255,9 +258,31 @@ func (c *Client) tickers() {
 					c.send(msg)
 				}
 			}
+		case <-tk1.C: //定时检查队列中过期的消息
+			c.sendChQueue.Expirations(func(item *queue.Item) {
+				c.grpool.Add(func() {
+					c.expirationsMessage(item.Data.([]byte))
+				})
+			})
 		}
 	}
 }
+
+
+func (c *Client) expirationsMessage(data []byte) {
+	c.lastReceiveTime = time.Now()
+	message, err := unMarshal(data)
+	if err != nil {
+		c.onError(errors.New("超时消息数据ProtoBuf解析失败！！连接ID："+c.Id+"原因："+err.Error()))
+		return
+	}
+	message.Status=3
+	message.Msg="goSendTimeout"
+	message.Desc="（由于网络或消息量超出限制）连接池中的消息队列处理超时！"
+	//收到消息触发回调
+	c.onMessage(message)
+}
+
 
 func (c *Client) send(msg []byte)  {
 	if c.IsClose{

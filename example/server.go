@@ -97,6 +97,10 @@ func main() {
 
 		//接收消息
 		client.OnMessage(func(msg *wsPool.SendMsg) {
+			if msg.Status==3 {
+				log.Println("OnMessage:收到出错消息=》",client.Id,msg.Desc)
+				return
+			}
 			//log.Println(""+msg.Msg)
 			if msg.ToClientId!="" {
 				//发送消息给指定的ToClientID连接

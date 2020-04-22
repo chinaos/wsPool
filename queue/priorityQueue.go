@@ -6,11 +6,14 @@ import (
 	"container/list"
 	"log"
 	"sync"
+	"time"
 )
 
 type Item struct {
 	Data         interface{} //数据
 	Priority     int32         //优先级
+	AddTime   time.Time      //插入队列的时间
+	Expiration int64 //过期时间值 以秒为单位
 }
 
 type PriorityQueue struct {
@@ -30,6 +33,7 @@ func NewPriorityQueue() *PriorityQueue {
 		Data:        list.New(),
 		PriorityMap: make(map[int32]*pqmap),
 	}
+
 	return pq
 }
 
@@ -89,5 +93,28 @@ func (pq *PriorityQueue) Pop() *Item {
 func (pq *PriorityQueue) Dump() {
 	for iter := pq.Data.Back(); iter != nil; iter = iter.Prev() {
 		log.Println("队列信息:", iter.Value.(*Item))
+	}
+}
+
+/*检测超时任务*/
+func (pq *PriorityQueue) Expirations(expriCallback func(item *Item)) {
+	defer lock.RUnlock()
+	lock.RLock()
+	var next *list.Element
+	for iter := pq.Data.Front(); iter!=nil;iter=next {
+		//fmt.Println("item:", iter.Value.(*Item))
+		v := iter.Value.(*Item)
+
+		isExpri:=v.AddTime.Add(time.Duration(v.Expiration)*time.Second).Before(time.Now())
+		if isExpri {
+			pq.Data.Remove(iter)
+			if pq.PriorityMap[v.Priority].totle > 1 {
+				pq.PriorityMap[v.Priority].totle = pq.PriorityMap[v.Priority].totle - 1
+			} else {
+				delete(pq.PriorityMap, v.Priority)
+			}
+			expriCallback(v)
+		}
+		next=iter.Next()
 	}
 }

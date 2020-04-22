@@ -183,6 +183,8 @@ func (c *Client) Send(msg *SendMsg) error  {
 	c.sendChQueue.Push(&queue.Item{
 		Data:data,
 		Priority:1,
+		AddTime:time.Now(),
+		Expiration:60,
 	})
 	return nil
 }
