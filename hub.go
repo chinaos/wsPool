@@ -112,113 +112,50 @@ func (h *hub) run() {
 		case message := <-h.broadcast:
 			//log.Println("全局广播消息：",message,"消息总数：",len(h.broadcast))
 			//全局广播消息处理
-			for _,v:=range h.clients{
+			for id,v:=range h.clients{
 				if v!=nil&&!v.IsClose {
+					message.ToClientId = id
 					 v.Send(message)
 				}
 
-			}
-			n := len(h.broadcast)
-			if(n>0) {
-				for i := 0; i < n; i++ {
-					msg := <-h.broadcast
-					for _, v := range h.clients {
-						if v != nil && !v.IsClose {
-							v.Send(msg)
-						}
-					}
-
-				}
 			}
 		case message := <-h.chanBroadcast:
 			//log.Println("频道广播消息：",message,"消息总数：",len(h.chanBroadcast))
 			//广播指定频道的消息处理
 			for id,client:=range h.clients{
 				if client!=nil {
-					if client.IsClose {
-						continue
-					}
-					for _,ch:=range message.Channel  {
-						if searchStrArray(client.channel,ch){
-							message.ToClientId=id
-							err:=client.Send(message)
-							if err != nil {
-								client.onError(errors.New("连接ID："+client.Id+"广播消息出现错误："+ err.Error()))
-							}
-						}
-					}
-				}
-
-			}
-			n := len(h.chanBroadcast)
-			if(n>0) {
-				for i := 0; i < n; i++ {
-					msg := <-h.chanBroadcast
-					for id, client := range h.clients {
-						if client != nil {
-							if client.IsClose {
-								continue
-							}
-							for _, ch := range msg.Channel {
-								if searchStrArray(client.channel, ch) {
-									msg.ToClientId = id
-									err := client.Send(msg)
-									if err != nil {
-										client.onError(errors.New("连接ID：" + client.Id + "广播消息出现错误：" + err.Error()))
-									}
+					if !client.IsClose {
+						for _, ch := range message.Channel {
+							if searchStrArray(client.channel, ch) {
+								message.ToClientId = id
+								err := client.Send(message)
+								if err != nil {
+									client.onError(errors.New("连接ID：" + client.Id + "广播消息出现错误：" + err.Error()))
 								}
 							}
 						}
-
 					}
-
 				}
+
 			}
 		case message := <-h.sendByToClientId:
 			//log.Println("包级发送消息指定sendByToClientId：",message,"消息总数：",len(h.sendByToClientId))
 			//包级发送消息指定sendByToClientId
-
-			for id,client:=range h.clients{
-				if client!=nil {
-					if client.Id==message.ToClientId{
-						if client.IsClose {
-							client.onError( errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！"))
-							break
-						}
-						message.ToClientId=id
+			client:=h.clients[message.ToClientId]
+			if client!=nil {
+				if client.Id==message.ToClientId{
+					if client.IsClose {
+						client.onError( errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！"))
+					}else{
+						message.ToClientId=client.Id
 						err := client.Send(message)
 						if err != nil {
 							client.onError(errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。"))
 						}
-						break
-					}
-				}
-
-			}
-			n := len(h.sendByToClientId)
-			if(n>0) {
-				for i := 0; i < n; i++ {
-					msg := <-h.sendByToClientId
-					for id, client := range h.clients {
-						if client != nil {
-							if client.Id == msg.ToClientId {
-								/*if client.IsClose {
-									client.onError(errors.New("包级发送消息sendByToClientId错误：连接对像：" + client.Id + "连接状态异常，连接己经关闭！"))
-									break
-								}*/
-								msg.ToClientId = id
-								err := client.Send(msg)
-								if err != nil {
-									client.onError(errors.New("发送消息出错：" + err.Error() + ",连接对象id=" + client.Id + "。"))
-								}
-								break
-							}
-						}
-
 					}
 				}
 			}
-		case <-ticker.C://断线超过一分钟清除所有队列缓存数据
+		case <-ticker.C://断线超过一分钟清除连接消息队列缓存数据
 			for _,v:=range h.clients{
 				if v!=nil&&v.IsClose {
 					isExpri:=v.CloseTime.Add(60*time.Second).Before(time.Now())
@@ -237,7 +174,8 @@ func (h *hub) run() {
 }
 
 func (h *hub) ticker() {
-	tk := time.NewTicker(10*time.Millisecond)
+	tk := time.NewTicker(20*time.Millisecond)
+	tk1 := time.NewTicker(60*time.Second)
 	for{
 		select {
 			case <-tk.C:
@@ -266,7 +204,47 @@ func (h *hub) ticker() {
 					send(msg)
 				}
 			}
+			case <-tk1.C: //定时检查队列中过期的消息
+				h.clearExpirationsBroadcastMessage()
 		}
 	}
+}
+
+func (h *hub)clearExpirationsBroadcastMessage()  {
+	h.broadcastQueue.Expirations(func(item *queue.Item) {
+		message:=item.Data.(*SendMsg)
+		client:=h.clients[message.ToClientId]
+		if client!=nil {
+			if client.Id==message.ToClientId&& !client.IsClose{
+				client.grpool.Add(func() {
+					client.expirationsBroadcastMessage(message)
+				})
+			}
+		}
+	})
+
+	h.chanBroadcastQueue.Expirations(func(item *queue.Item) {
+		message:=item.Data.(*SendMsg)
+		client:=h.clients[message.ToClientId]
+		if client!=nil {
+			if client.Id==message.ToClientId&& !client.IsClose{
+				client.grpool.Add(func() {
+					client.expirationsBroadcastMessage(message)
+				})
+			}
+		}
+	})
+
+	h.sendByToClientIdQueue.Expirations(func(item *queue.Item) {
+		message:=item.Data.(*SendMsg)
+		client:=h.clients[message.ToClientId]
+		if client!=nil {
+			if client.Id==message.ToClientId&& !client.IsClose{
+				client.grpool.Add(func() {
+					client.expirationsBroadcastMessage(message)
+				})
+			}
+		}
+	})
 }
 

@@ -236,7 +236,7 @@ func (c *Client) writePump() {
 
 func (c *Client) tickers() {
 	tk := time.NewTicker(10*time.Millisecond)
-	tk1 := time.NewTicker(10*time.Second)
+	tk1 := time.NewTicker(60*time.Second)
 	defer func() {
 		tk.Stop()
 		dump()
@@ -268,9 +268,8 @@ func (c *Client) tickers() {
 	}
 }
 
-
+/*当前连接队列消息超时处理方法*/
 func (c *Client) expirationsMessage(data []byte) {
-	c.lastReceiveTime = time.Now()
 	message, err := unMarshal(data)
 	if err != nil {
 		c.onError(errors.New("超时消息数据ProtoBuf解析失败！！连接ID："+c.Id+"原因："+err.Error()))
@@ -282,6 +281,20 @@ func (c *Client) expirationsMessage(data []byte) {
 	//收到消息触发回调
 	c.onMessage(message)
 }
+
+/*广播消息队列消息超时处理主法*/
+func (c *Client) expirationsBroadcastMessage(message *SendMsg) {
+	message.Status=3
+	message.Msg="goBroadcastTimeout"
+	message.Desc="（由于网络或消息量超出限制）连接池中的广播消息队列处理超时！"
+	//收到消息触发回调
+		c.onMessage(message)
+}
+
+
+
+
+
 
 
 func (c *Client) send(msg []byte)  {

@@ -26,7 +26,7 @@ var addr = flag.String("addr", "localhost:8080", "http service address")
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU()/2)
-	for i:=1;i<1000 ;i++  {
+	for i:=1;i<2000 ;i++  {
 		go wsClient(fmt.Sprintf("%d_1_3",i))
 	}
 	select {

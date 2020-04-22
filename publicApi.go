@@ -215,6 +215,8 @@ func Send(msg *SendMsg) error {
 	wsSever.hub.sendByToClientIdQueue.Push(&queue.Item{
 		Data:msg,
 		Priority:1,
+		AddTime:time.Now(),
+		Expiration:60,
 	})
 	return nil
 }
@@ -233,6 +235,8 @@ func Broadcast(msg *SendMsg) error {
 	wsSever.hub.chanBroadcastQueue.Push(&queue.Item{
 		Data:msg,
 		Priority:1,
+		AddTime:time.Now(),
+		Expiration:60,
 	})
 	return nil
 }
@@ -246,6 +250,8 @@ func BroadcastAll(msg *SendMsg) error {
 	wsSever.hub.broadcastQueue.Push(&queue.Item{
 		Data:msg,
 		Priority:1,
+		AddTime:time.Now(),
+		Expiration:60,
 	})
 	return nil
 }
