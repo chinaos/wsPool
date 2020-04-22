@@ -38,7 +38,7 @@ func chfun(i int){
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU()/2)
 
 
 
@@ -82,10 +82,13 @@ func main() {
 			Id:list[0], //连接标识
 			Type:"ws", //连接类型
 			Channel:list[1:], //指定频道
+			Goroutine:1024,
 		})
+		log.Println(client.Id,"实例化连接对象完成")
 
 		//开启连接
 		client.OpenClient(w,r,head)
+		log.Println(client.Id,"开启连接")
 
 		//连接成功回调
 		client.OnOpen(func() {
@@ -97,16 +100,28 @@ func main() {
 			//log.Println(""+msg.Msg)
 			if msg.ToClientId!="" {
 				//发送消息给指定的ToClientID连接
-				wsPool.Send(msg)
+				err:=wsPool.Send(msg)
+				if err!=nil {
+					log.Println("wsPool.Send(msg):",err.Error())
+				}
 				//发送消息给当前连接对象
-				client.Send(msg)
+				err=client.Send(msg)
+				if err!=nil {
+					log.Println("client.Send(msg):", err.Error())
+				}
 			}
 			if len(msg.Channel)>0{
 				//按频道广播，可指定多个频道[]string
-				wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
+				err:=wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
+				if err!=nil {
+					log.Println("wsPool.Broadcast(msg)", err.Error())
+				}
 			}
 			//或都全局广播，所有连接都进行发送
-			wsPool.BroadcastAll(msg)
+			err:=wsPool.BroadcastAll(msg)
+			if err!=nil {
+				log.Println("wsPool.BroadcastAll(msg)", err.Error())
+			}
 
 		})
 		//连接断开回调

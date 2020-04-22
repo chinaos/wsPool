@@ -8,6 +8,7 @@ package main
 
 import (
 	"flag"
+	"gitee.com/rczweb/wsPool"
 	"github.com/gogo/protobuf/proto"
 	"log"
 	"net/http"
@@ -15,14 +16,21 @@ import (
 	"os"
 	"os/signal"
 	"time"
-	"wsPool"
-
 	"github.com/gorilla/websocket"
 )
 
 var addr = flag.String("addr", "localhost:8080", "http service address")
 
 func main() {
+	go wsClient("1001_1_2")
+	select {
+
+	}
+}
+
+
+
+func wsClient(id string) {
 	flag.Parse()
 	log.SetFlags(0)
 
@@ -30,27 +38,29 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
-	log.Printf("connecting to %s", "12_1_2")
+	log.Printf("connecting to %s", u.String())
 	head := http.Header{}
-	log.Printf("connecting info: %s","12_1_2")
-	head.Add("Sec-Websocket-Protocol", "12_1_2")
+	log.Printf("connecting info: %s",id)
+	head.Add("Sec-Websocket-Protocol", id)
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), head)
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
+	defer c.Close()
 	ping := make(chan int)
 	c.SetPingHandler(func(appData string) error {
-		
 		ping<-1;
 		return nil
 	})
-	defer c.Close()
 
 	done := make(chan struct{})
 
-
 	go func() {
-		defer close(done)
+		ticker1 := time.NewTicker(10*time.Second)
+		defer func() {
+			ticker1.Stop()
+			close(done)
+		}()
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
@@ -58,15 +68,22 @@ func main() {
 				return
 			}
 			log.Printf("recv: %s", message)
+			select{
+			case  <-ticker1.C:
+				return
+			}
 		}
 	}()
 
 	ticker := time.NewTicker(time.Second)
+
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-done:
+			//重新连接
+			go wsClient(id)
 			return
 		case  <-ticker.C:
 			msg:=&wsPool.SendMsg{

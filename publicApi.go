@@ -3,6 +3,7 @@ package wsPool
 import (
 	"errors"
 	"gitee.com/rczweb/wsPool/grpool"
+	"gitee.com/rczweb/wsPool/queue"
 	"net/http"
 	"time"
 )
@@ -13,15 +14,16 @@ import (
 */
 func NewClient(conf *Config) *Client{
 	if conf.Goroutine==0{
-		conf.Goroutine=10
+		conf.Goroutine=256
 	}
 	client := &Client{
 		Id:conf.Id,
 		types:conf.Type,
 		channel:conf.Channel,
 		hub: wsSever.hub,
-		sendCh: make(chan []byte, 2048),
-		ping: make(chan int, 2048),
+		sendCh: make(chan []byte,1024),
+		sendChQueue:queue.NewPriorityQueue(),
+		ping: make(chan int),
 		IsClose:true,
 		grpool:grpool.NewPool(conf.Goroutine),
 	}
@@ -31,7 +33,6 @@ func NewClient(conf *Config) *Client{
 	client.OnPong(nil)
 	client.OnMessage(nil)
 	client.OnClose(nil)
-	client.hub.register <- client
 	return client
 }
 
@@ -39,10 +40,8 @@ func NewClient(conf *Config) *Client{
 
 //开启连接
 // serveWs handles websocket requests from the peer.
-func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Header) {
+func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Header)  {
 	defer dump();
-
-
 	conn, err := upgrader.Upgrade(w, r, head)
 	if err != nil {
 		if c.onError!=nil{
@@ -76,9 +75,13 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
+	//连接开启后瑞添加连接池中
+
 	go c.writePump()
 	go c.readPump()
 	c.openTime=time.Now()
+	c.hub.register <- c
+	go c.tickers()
 	c.onOpen()
 }
 
@@ -177,32 +180,40 @@ func (c *Client) Send(msg *SendMsg) error  {
 		return errors.New("连接ID："+c.Id+"生成protubuf数据失败！原因：:"+err.Error())
 	}
 	//log.Debug("连接：" + msg.ToClientId + "开始发送消息！");
-	c.send(data)
+	c.sendChQueue.Push(&queue.Item{
+		Data:data,
+		Priority:1,
+	})
 	return nil
 }
 
 //服务主动关闭连接
 func (c *Client) Close() {
 	c.close()
-	c.ticker.Stop()
-	c.conn.Close()
-	c.hub.unregister<-c
 }
 
 
 
 
-/*包级的公开方法*/
+/*
+包级的公开方法
+所有包级的发送如果连接断开，消息会丢失
+*/
 /*
 // 发送消息 只从连接池中按指定的toClientId的连接对象发送出消息
 在此方法中sendMsg.Channel指定的值不会处理
+
 */
 func Send(msg *SendMsg) error {
 	//log.Info("发送指令：",msg.Cmd,msg.ToClientId)
+
 	if msg.ToClientId=="" {
 		return errors.New("发送消息的消息体中未指定ToClient目标！")
 	}
-	wsSever.hub.sendByToClientId<-msg
+	wsSever.hub.sendByToClientIdQueue.Push(&queue.Item{
+		Data:msg,
+		Priority:1,
+	})
 	return nil
 }
 
@@ -217,11 +228,10 @@ func Broadcast(msg *SendMsg) error {
 	if  len(msg.Channel)==0 {
 		return errors.New("广播消息的消息体中未指定Channel频道！")
 	}
-
-/*	m:=&sync.Mutex{}
-	m.Lock()
-	defer m.Unlock()*/
-	wsSever.hub.chanBroadcast<-msg
+	wsSever.hub.chanBroadcastQueue.Push(&queue.Item{
+		Data:msg,
+		Priority:1,
+	})
 	return nil
 }
 
@@ -231,11 +241,10 @@ func Broadcast(msg *SendMsg) error {
 通过此方法进行广播的消息体，会对所有的类型和频道都进行广播
 */
 func BroadcastAll(msg *SendMsg) error {
-	data, err := marshal(msg)
-	if err != nil {
-		return errors.New("全局广播生成protubuf数据失败！原因：:"+err.Error())
-	}
-	wsSever.hub.broadcast<-data
+	wsSever.hub.broadcastQueue.Push(&queue.Item{
+		Data:msg,
+		Priority:1,
+	})
 	return nil
 }
 

@@ -16,6 +16,7 @@ func InitWsPool(errfun func(err interface{}) ){
 	wsSever.hub = newHub()
 	wsSever.ErrFun = errfun
 	go wsSever.hub.run() //开启服务
+	go wsSever.hub.ticker()
 }
 
 
