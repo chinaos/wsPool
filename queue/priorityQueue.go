@@ -100,11 +100,12 @@ func (pq *PriorityQueue) Dump() {
 func (pq *PriorityQueue) Expirations(expriCallback func(item *Item)) {
 	defer lock.RUnlock()
 	lock.RLock()
-	var next *list.Element
-	for iter := pq.Data.Front(); iter!=nil;iter=next {
+	for iter := pq.Data.Back(); iter != nil; iter = iter.Prev() {
 		//fmt.Println("item:", iter.Value.(*Item))
 		v := iter.Value.(*Item)
-
+		if v.Expiration==0 {
+			continue
+		}
 		isExpri:=v.AddTime.Add(time.Duration(v.Expiration)*time.Second).Before(time.Now())
 		if isExpri {
 			pq.Data.Remove(iter)
@@ -114,7 +115,10 @@ func (pq *PriorityQueue) Expirations(expriCallback func(item *Item)) {
 				delete(pq.PriorityMap, v.Priority)
 			}
 			expriCallback(v)
+		}else{
+			//没过期说明越往前越新
+			break
 		}
-		next=iter.Next()
+
 	}
 }

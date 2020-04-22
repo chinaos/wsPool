@@ -83,7 +83,7 @@ func wsClient(id string) {
 			log.Printf("recv: %s", message)
 			select{
 				case  <-ticker1.C:
-					return
+					//return
 			}
 		}
 	}()

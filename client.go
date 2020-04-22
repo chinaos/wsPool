@@ -236,7 +236,7 @@ func (c *Client) writePump() {
 
 func (c *Client) tickers() {
 	tk := time.NewTicker(10*time.Millisecond)
-	tk1 := time.NewTicker(60*time.Second)
+	tk1 := time.NewTicker(30*time.Second)
 	defer func() {
 		tk.Stop()
 		dump()
@@ -251,7 +251,7 @@ func (c *Client) tickers() {
 				return
 			}
 			n := len(c.sendCh)
-			if(n==0&&c.sendChQueue.Len()>0) {
+			if(n<1023&&c.sendChQueue.Len()>0) {
 				item:=c.sendChQueue.Pop()
 				if item!=nil {
 					msg:=item.Data.([]byte)
@@ -302,7 +302,7 @@ func (c *Client) send(msg []byte)  {
 		c.onError(errors.New("连接"+c.Id+",连接己在关闭，消息发送失败"))
 		return
 	}
-	timeout := time.NewTimer(time.Microsecond * 800)
+	timeout := time.NewTimer(time.Millisecond * 800)
 	select {
 	case c.sendCh<-msg:
 		return

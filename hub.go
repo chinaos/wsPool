@@ -27,10 +27,6 @@ type hub struct {
 	chanBroadcast chan *SendMsg
 	chanBroadcastQueue *queue.PriorityQueue
 
-	//全局指定发消息通过ToClientId发送消息
-	sendByToClientId chan *SendMsg
-	sendByToClientIdQueue *queue.PriorityQueue
-
 	// Register requests from the clients.
 	register chan *Client
 
@@ -50,18 +46,16 @@ func newHub() *hub {
 	return &hub{
 		broadcast:  	make(chan *SendMsg,256),
 		chanBroadcast:  make(chan *SendMsg,256),
-		sendByToClientId:  make(chan *SendMsg,256),
 		register:   	make(chan *Client,1024),
 		unregister: 	make(chan string),
 		clients:    	make(map[string]*Client),//NewSafeMap(),
 		broadcastQueue:queue.NewPriorityQueue(),
 		chanBroadcastQueue:queue.NewPriorityQueue(),
-		sendByToClientIdQueue:queue.NewPriorityQueue(),
 	}
 }
 
 func (h *hub) run() {
-	ticker := time.NewTicker(60*time.Second)
+	ticker := time.NewTicker(1*time.Second)
 	for {
 		select {
 		case id := <-h.unregister:
@@ -75,6 +69,8 @@ func (h *hub) run() {
 						client.sendChQueue.Push(&queue.Item{
 							Data:<-client.sendCh,
 							Priority:1,
+							AddTime:time.Now(),
+							Expiration:60,
 						})
 					}
 				}
@@ -138,23 +134,6 @@ func (h *hub) run() {
 				}
 
 			}
-		case message := <-h.sendByToClientId:
-			//log.Println("包级发送消息指定sendByToClientId：",message,"消息总数：",len(h.sendByToClientId))
-			//包级发送消息指定sendByToClientId
-			client:=h.clients[message.ToClientId]
-			if client!=nil {
-				if client.Id==message.ToClientId{
-					if client.IsClose {
-						client.onError( errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！"))
-					}else{
-						message.ToClientId=client.Id
-						err := client.Send(message)
-						if err != nil {
-							client.onError(errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。"))
-						}
-					}
-				}
-			}
 		case <-ticker.C://断线超过一分钟清除连接消息队列缓存数据
 			for _,v:=range h.clients{
 				if v!=nil&&v.IsClose {
@@ -174,13 +153,13 @@ func (h *hub) run() {
 }
 
 func (h *hub) ticker() {
-	tk := time.NewTicker(20*time.Millisecond)
-	tk1 := time.NewTicker(60*time.Second)
+	tk := time.NewTicker(10*time.Millisecond)
+	tk1 := time.NewTicker(30*time.Second)
 	for{
 		select {
 			case <-tk.C:
 			n := len(h.broadcast)
-			if(n<255&&h.broadcastQueue.Len()>0) {
+			if(n==0&&h.broadcastQueue.Len()>0) {
 				item:=h.broadcastQueue.Pop()
 				if item!=nil {
 					msg:=item.Data.(*SendMsg)
@@ -188,7 +167,7 @@ func (h *hub) ticker() {
 				}
 			}
 			n = len(h.chanBroadcast)
-			if(n<255&&h.chanBroadcastQueue.Len()>0) {
+			if(n==0&&h.chanBroadcastQueue.Len()>0) {
 				item:=h.chanBroadcastQueue.Pop()
 				if item!=nil {
 					msg:=item.Data.(*SendMsg)
@@ -196,14 +175,6 @@ func (h *hub) ticker() {
 				}
 			}
 
-			n = len(h.sendByToClientId)
-			if(n<255&&h.sendByToClientIdQueue.Len()>0) {
-				item:=h.sendByToClientIdQueue.Pop()
-				if item!=nil {
-					msg:=item.Data.(*SendMsg)
-					send(msg)
-				}
-			}
 			case <-tk1.C: //定时检查队列中过期的消息
 				h.clearExpirationsBroadcastMessage()
 		}
@@ -224,18 +195,6 @@ func (h *hub)clearExpirationsBroadcastMessage()  {
 	})
 
 	h.chanBroadcastQueue.Expirations(func(item *queue.Item) {
-		message:=item.Data.(*SendMsg)
-		client:=h.clients[message.ToClientId]
-		if client!=nil {
-			if client.Id==message.ToClientId&& !client.IsClose{
-				client.grpool.Add(func() {
-					client.expirationsBroadcastMessage(message)
-				})
-			}
-		}
-	})
-
-	h.sendByToClientIdQueue.Expirations(func(item *queue.Item) {
 		message:=item.Data.(*SendMsg)
 		client:=h.clients[message.ToClientId]
 		if client!=nil {

@@ -96,29 +96,7 @@ func unMarshal(data []byte) (*SendMsg, error) {
 
 
 /*包级的私有方法*/
-/*
-// 发送消息 只从连接池中按指定的toClientId的连接对象发送出消息
-在此方法中sendMsg.Channel指定的值不会处理
-*/
-func send(msg *SendMsg) error {
-	//log.Info("发送指令：",msg.Cmd,msg.ToClientId)
-	if msg.ToClientId=="" {
-		return errors.New("发送消息的消息体中未指定ToClient目标！")
-	}
-	if len(wsSever.hub.sendByToClientId)>255{
-		return errors.New("发送消息的管道己经写满，请稍后再试！")
-	}
-	timeout := time.NewTimer(time.Microsecond * 800)
 
-	select {
-	case wsSever.hub.sendByToClientId<-msg:
-		return nil
-	case <-timeout.C:
-		return errors.New("sendByToClientId消息管道blocked,写入消息超时")
-		/*default:
-			c.onError(errors.New("sendCh消息管道blocked,无法写入"))*/
-	}
-}
 
 //通过连接池广播消息，每次广播只能指定一个类型下的一个频道
 /*
@@ -134,7 +112,7 @@ func broadcast(msg *SendMsg) error {
 	if len(wsSever.hub.chanBroadcast)>255{
 		return errors.New("Channel广播消息的管道己经写满，请稍后再试！")
 	}
-	timeout := time.NewTimer(time.Microsecond * 800)
+	timeout := time.NewTimer(time.Millisecond * 800)
 	select {
 	case wsSever.hub.chanBroadcast<-msg:
 		return nil
@@ -154,7 +132,7 @@ func broadcastAll(msg *SendMsg) error {
 	if len(wsSever.hub.broadcast)>255{
 		return errors.New("广播消息的管道己经写满，请稍后再试！")
 	}
-	timeout := time.NewTimer(time.Microsecond * 800)
+	timeout := time.NewTimer(time.Millisecond * 800)
 	select {
 	case wsSever.hub.broadcast<-msg:
 		return nil

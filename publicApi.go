@@ -212,19 +212,27 @@ func Send(msg *SendMsg) error {
 	if msg.ToClientId=="" {
 		return errors.New("发送消息的消息体中未指定ToClient目标！")
 	}
-	wsSever.hub.sendByToClientIdQueue.Push(&queue.Item{
-		Data:msg,
-		Priority:1,
-		AddTime:time.Now(),
-		Expiration:60,
-	})
+	client:=wsSever.hub.clients[msg.ToClientId]
+	if client!=nil {
+		if client.Id==msg.ToClientId{
+			if client.IsClose {
+				return errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！")
+			}else{
+				msg.ToClientId=client.Id
+				err := client.Send(msg)
+				if err != nil {
+					return errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。")
+				}
+			}
+		}
+	}
 	return nil
 }
 
 //通过连接池广播消息，每次广播只能指定一个类型下的一个频道
+
 /*
-广播消息每次只能指定一个类型和一个频道
-广播消息分两种情况
+广播一定要设置toClientId,这个对象可以确定广播超时消息回复对像
 并且只针对频道内的连接进行处理
 */
 
@@ -244,6 +252,7 @@ func Broadcast(msg *SendMsg) error {
 
 /*
 全局广播
+广播一定要设置toClientId,这个对象可以确定广播超时消息回复对像
 通过此方法进行广播的消息体，会对所有的类型和频道都进行广播
 */
 func BroadcastAll(msg *SendMsg) error {

@@ -114,7 +114,7 @@ func main() {
 					log.Println("client.Send(msg):", err.Error())
 				}
 			}
-			if len(msg.Channel)>0{
+			/*if len(msg.Channel)>0{
 				//按频道广播，可指定多个频道[]string
 				err:=wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
 				if err!=nil {
@@ -125,7 +125,7 @@ func main() {
 			err:=wsPool.BroadcastAll(msg)
 			if err!=nil {
 				log.Println("wsPool.BroadcastAll(msg)", err.Error())
-			}
+			}*/
 
 		})
 		//连接断开回调
