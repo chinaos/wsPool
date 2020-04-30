@@ -6,8 +6,9 @@ package wsPool
 
 import (
 	"errors"
-	"gitee.com/rczweb/wsPool/grpool"
-	"gitee.com/rczweb/wsPool/queue"
+	"gitee.com/rczweb/wsPool/util/grpool"
+	"gitee.com/rczweb/wsPool/util/queue"
+	"github.com/gogf/gf/os/gtimer"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
@@ -74,6 +75,10 @@ type Client struct {
 	grpool *grpool.Pool
 	sendCh chan []byte
 	sendChQueue *queue.PriorityQueue
+	readSendChQueueTimer *gtimer.Entry //定时读取队列消息的定时器
+	clearSendChQueueTimer *gtimer.Entry //定时清理队列消息的定时器
+	sendPing chan int
+	sendPingTimer *gtimer.Entry //定时发送ping的定时器
 	ping chan int //收到ping的存储管道，方便回复pong处理
 	ticker  *time.Ticker //定时发送ping的定时器
 	onError func(error)
@@ -165,10 +170,8 @@ func (c *Client) readMessage(data []byte) {
 // application ensures that there is at most one writer to a connection by
 // executing all writes from this goroutine.
 func (c *Client) writePump() {
-	c.ticker = time.NewTicker(pingPeriod)
 	defer func() {
 		c.IsClose=true
-		c.ticker.Stop()
 		dump()
 	}()
 	for {
@@ -213,11 +216,16 @@ func (c *Client) writePump() {
 				return
 			}
 
-		case <-c.ticker.C:
-			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				c.onError(errors.New("连接ID："+c.Id+"关闭写入IO对象出错，连接中断"+err.Error()))
-				return
+		case p, ok :=<-c.sendPing: //定时发送ping
+			if !ok {
+				continue
+			}
+			if p==1 {
+				c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					c.onError(errors.New("连接ID：" + c.Id + "关闭写入IO对象出错，连接中断" + err.Error()))
+					return
+				}
 			}
 		case p, ok :=<-c.ping:
 			if !ok {
@@ -235,38 +243,35 @@ func (c *Client) writePump() {
 }
 
 func (c *Client) tickers() {
-	tk := time.NewTicker(10*time.Millisecond)
-	tk1 := time.NewTicker(30*time.Second)
-	defer func() {
-		tk.Stop()
-		dump()
-	}()
-	for {
-		if c.IsClose {
+	c.sendPingTimer=gtimer.AddSingleton(pingPeriod, func() {
+		c.sendPing<-1
+	})
+	c.readSendChQueueTimer=gtimer.AddSingleton(1*time.Millisecond, func() {
+		if c.IsClose|| c.sendChQueue==nil {
 			return
 		}
-		select {
-		case <-tk.C:
-			if c.IsClose|| c.sendChQueue==nil {
-				return
+		n := len(c.sendCh)
+		if(n<4088&&c.sendChQueue.Len()>0) {
+			item:=c.sendChQueue.Pop()
+			if item!=nil {
+				msg:=item.Data.([]byte)
+				c.send(msg)
 			}
-			n := len(c.sendCh)
-			if(n<1023&&c.sendChQueue.Len()>0) {
-				item:=c.sendChQueue.Pop()
-				if item!=nil {
-					msg:=item.Data.([]byte)
-					c.send(msg)
-				}
-			}
-		case <-tk1.C: //定时检查队列中过期的消息
-			c.sendChQueue.Expirations(func(item *queue.Item) {
-				c.grpool.Add(func() {
-					c.expirationsMessage(item.Data.([]byte))
-				})
-			})
 		}
-	}
+	})
+	c.clearSendChQueueTimer=gtimer.AddSingleton(30*time.Second, func() {
+		c.sendChQueue.Expirations(func(item *queue.Item) {
+			c.grpool.Add(func() {
+				c.expirationsMessage(item.Data.([]byte))
+			})
+		})
+	})
 }
+
+
+
+
+
 
 /*当前连接队列消息超时处理方法*/
 func (c *Client) expirationsMessage(data []byte) {
@@ -317,6 +322,9 @@ func (c *Client) send(msg []byte)  {
 
 func (c *Client) close() {
 	c.IsClose=true
+	c.sendPingTimer.Stop()
+	c.clearSendChQueueTimer.Stop()
+	c.readSendChQueueTimer.Stop()
 	c.conn.Close()
 	//触发连接关闭的事件回调
 	c.onClose() //先执行完关闭回调，再请空所有的回调

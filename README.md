@@ -3,6 +3,7 @@
 #### 介绍
 golang websocket 连接池
 
+依赖了goframe 框架（很优秀的框架）的部分库
 基于gorilla/websocket和protobuf实现
 
 同时支持各种类型的数据交互

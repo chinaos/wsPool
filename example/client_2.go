@@ -10,7 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"gitee.com/rczweb/wsPool"
-	"gitee.com/rczweb/wsPool/example/grand"
+	"github.com/gogf/gf/util/grand"
 	"github.com/gogo/protobuf/proto"
 	"log"
 	"net/http"
@@ -26,7 +26,7 @@ var addr = flag.String("addr", "localhost:8080", "http service address")
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU()/2)
-	for i:=1;i<2000 ;i++  {
+	for i:=1;i<500 ;i++  {
 		go wsClient(fmt.Sprintf("%d_1_3",i))
 	}
 	select {
@@ -67,7 +67,7 @@ func wsClient(id string) {
 	})
 
 	done := make(chan struct{})
-	t:=grand.N(10,30)
+	t:=grand.N(10,60)
 	go func() {
 		ticker1 := time.NewTicker(time.Duration(t)*time.Second)
 		defer func() {

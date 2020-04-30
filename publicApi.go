@@ -2,8 +2,8 @@ package wsPool
 
 import (
 	"errors"
-	"gitee.com/rczweb/wsPool/grpool"
-	"gitee.com/rczweb/wsPool/queue"
+	"gitee.com/rczweb/wsPool/util/grpool"
+	"gitee.com/rczweb/wsPool/util/queue"
 	"net/http"
 	"time"
 )
@@ -14,16 +14,17 @@ import (
 */
 func NewClient(conf *Config) *Client{
 	if conf.Goroutine==0{
-		conf.Goroutine=256
+		conf.Goroutine=4096
 	}
 	client := &Client{
 		Id:conf.Id,
 		types:conf.Type,
 		channel:conf.Channel,
 		hub: wsSever.hub,
-		sendCh: make(chan []byte,1024),
+		sendCh: make(chan []byte,4096),
 		sendChQueue:queue.NewPriorityQueue(),
 		ping: make(chan int),
+		sendPing:make(chan int),
 		IsClose:true,
 		grpool:grpool.NewPool(conf.Goroutine),
 	}
@@ -212,8 +213,9 @@ func Send(msg *SendMsg) error {
 	if msg.ToClientId=="" {
 		return errors.New("发送消息的消息体中未指定ToClient目标！")
 	}
-	client:=wsSever.hub.clients[msg.ToClientId]
-	if client!=nil {
+	c:=wsSever.hub.clients.Get(msg.ToClientId)
+	if c!=nil {
+		client:=c.(*Client)
 		if client.Id==msg.ToClientId{
 			if client.IsClose {
 				return errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！")
