@@ -16,17 +16,33 @@ func NewClient(conf *Config) *Client{
 	if conf.Goroutine==0{
 		conf.Goroutine=4096
 	}
-	client := &Client{
+	var client *Client
+	oldclient:=wsSever.hub.clients.Get(conf.Id)
+	if oldclient!=nil {
+		c:=oldclient.(*Client)
+		if !c.IsClose {
+			c.close()
+		}
+	}
+	client = &Client{
 		Id:conf.Id,
 		types:conf.Type,
 		channel:conf.Channel,
 		hub: wsSever.hub,
 		sendCh: make(chan []byte,4096),
-		sendChQueue:queue.NewPriorityQueue(),
+
 		ping: make(chan int),
 		sendPing:make(chan int),
 		IsClose:true,
 		grpool:grpool.NewPool(conf.Goroutine),
+	}
+	oldMsgQ:=wsSever.hub.oldMsgQueue.Get(conf.Id)
+	if oldMsgQ != nil{
+		q:=oldMsgQ.(*oldMsg)
+		client.sendChQueue=q.list
+		wsSever.hub.oldMsgQueue.Remove(conf.Id)
+	}else{
+		client.sendChQueue=queue.NewPriorityQueue()
 	}
 	client.OnError(nil)
 	client.OnOpen(nil)
@@ -50,6 +66,7 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 		}
 		return
 	}
+	r.Close=true
 	c.conn=conn
 	c.IsClose=false
 	c.conn.SetReadLimit(maxMessageSize)
@@ -77,11 +94,10 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 	// Allow collection of memory referenced by the caller by doing all work in
 	// new goroutines.
 	//连接开启后瑞添加连接池中
-
-	go c.writePump()
-	go c.readPump()
 	c.openTime=time.Now()
 	c.hub.register <- c
+	go c.writePump()
+	go c.readPump()
 	go c.tickers()
 	c.onOpen()
 }

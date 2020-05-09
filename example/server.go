@@ -10,7 +10,7 @@ import (
 )
 
 
-var addr = flag.String("addr", ":8080", "http service address")
+var addr = flag.String("addr", ":8081", "http service address")
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL)
@@ -38,9 +38,7 @@ func chfun(i int){
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU()/2)
-
-
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	/*	for i:=0;i<10000 ;i++  {
 			go chfun(i)
@@ -82,7 +80,7 @@ func main() {
 			Id:list[0], //连接标识
 			Type:"ws", //连接类型
 			Channel:list[1:], //指定频道
-			Goroutine:1024,
+			Goroutine:10240,
 		})
 		log.Println(client.Id,"实例化连接对象完成")
 
@@ -114,15 +112,15 @@ func main() {
 					log.Println("client.Send(msg):", err.Error())
 				}
 			}
-			if len(msg.Channel)>0{
+			/*if len(msg.Channel)>0{
 				//按频道广播，可指定多个频道[]string
 				err:=wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
 				if err!=nil {
 					log.Println("wsPool.Broadcast(msg)", err.Error())
 				}
-			}
+			}*/
 			//或都全局广播，所有连接都进行发送
-			/*err:=wsPool.BroadcastAll(msg)
+		/*	err:=wsPool.BroadcastAll(msg)
 			if err!=nil {
 				log.Println("wsPool.BroadcastAll(msg)", err.Error())
 			}*/
@@ -144,7 +142,7 @@ func main() {
 			log.Printf("收到连接的Ping:%s",client.Id)
 			//cache.PageApiPool.Remove(connOjb.Id)
 		})
-
+		r.Close=true
 	})
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {

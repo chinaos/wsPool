@@ -95,6 +95,21 @@ func (pq *PriorityQueue) Dump() {
 		log.Println("队列信息:", iter.Value.(*Item))
 	}
 }
+//清除队列
+func (pq *PriorityQueue) Clear() {
+	defer lock.RUnlock()
+	lock.RLock()
+	for iter := pq.Data.Back(); iter != nil; iter = iter.Prev() {
+		//fmt.Println("item:", iter.Value.(*Item))
+		v := iter.Value.(*Item)
+		pq.Data.Remove(iter)
+		if pq.PriorityMap[v.Priority].totle > 1 {
+			pq.PriorityMap[v.Priority].totle = pq.PriorityMap[v.Priority].totle - 1
+		} else {
+			delete(pq.PriorityMap, v.Priority)
+		}
+	}
+}
 
 /*检测超时任务*/
 func (pq *PriorityQueue) Expirations(expriCallback func(item *Item)) {

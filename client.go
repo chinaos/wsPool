@@ -31,8 +31,8 @@ const (
 
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
+	//ReadBufferSize:  1024 * 1024,
+	//WriteBufferSize: 1024 * 1024,
 	// 默认允许WebSocket请求跨域，权限控制可以由业务层自己负责，灵活度更高
 	CheckOrigin: func(r *http.Request) bool {
 		return true
@@ -69,7 +69,7 @@ type Client struct {
 	lastSendTime    time.Time //最后一次发送数据的时间
 	Id              string    //标识连接的名称
 	IsClose bool   //连接的状态。true为关闭
-	CloseTime time.Time //连接断开的时间
+	CloseTime int64 //连接断开的时间
 	channel []string //连接注册频道类型方便广播等操作。做为一个数组存储。因为一个连接可以属多个频道
 	// Buffered channel of outbound messages.
 	grpool *grpool.Pool
@@ -134,9 +134,6 @@ func (c *Client) readPump() {
 			c.grpool.Add(func() {
 				c.readMessage(message)
 			})
-
-
-
 	}
 }
 
@@ -244,10 +241,13 @@ func (c *Client) writePump() {
 
 func (c *Client) tickers() {
 	c.sendPingTimer=gtimer.AddSingleton(pingPeriod, func() {
+		if c.IsClose {
+			return
+		}
 		c.sendPing<-1
 	})
-	c.readSendChQueueTimer=gtimer.AddSingleton(1*time.Millisecond, func() {
-		if c.IsClose|| c.sendChQueue==nil {
+	c.readSendChQueueTimer=gtimer.AddSingleton(10*time.Microsecond, func() {
+		if c.IsClose || c.sendChQueue==nil{
 			return
 		}
 		n := len(c.sendCh)
@@ -260,6 +260,9 @@ func (c *Client) tickers() {
 		}
 	})
 	c.clearSendChQueueTimer=gtimer.AddSingleton(30*time.Second, func() {
+		if c.IsClose {
+			return
+		}
 		c.sendChQueue.Expirations(func(item *queue.Item) {
 			c.grpool.Add(func() {
 				c.expirationsMessage(item.Data.([]byte))
@@ -322,9 +325,9 @@ func (c *Client) send(msg []byte)  {
 
 func (c *Client) close() {
 	c.IsClose=true
-	c.sendPingTimer.Stop()
-	c.clearSendChQueueTimer.Stop()
-	c.readSendChQueueTimer.Stop()
+	c.sendPingTimer.Close()
+	c.clearSendChQueueTimer.Close()
+	c.readSendChQueueTimer.Close()
 	c.conn.Close()
 	//触发连接关闭的事件回调
 	c.onClose() //先执行完关闭回调，再请空所有的回调

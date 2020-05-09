@@ -22,11 +22,11 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
+var addr = flag.String("addr", "localhost:8081", "http service address")
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU()/2)
-	for i:=1;i<500 ;i++  {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	for i:=1;i<5000 ;i++  {
 		go wsClient(fmt.Sprintf("%d_1_3",i))
 	}
 	select {
@@ -67,7 +67,7 @@ func wsClient(id string) {
 	})
 
 	done := make(chan struct{})
-	t:=grand.N(10,60)
+	t:=grand.N(30,90)
 	go func() {
 		ticker1 := time.NewTicker(time.Duration(t)*time.Second)
 		defer func() {
@@ -83,7 +83,7 @@ func wsClient(id string) {
 			log.Printf("recv: %s", message)
 			select{
 				case  <-ticker1.C:
-					//return
+					return
 			}
 		}
 	}()
