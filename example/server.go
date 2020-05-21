@@ -112,18 +112,18 @@ func main() {
 					log.Println("client.Send(msg):", err.Error())
 				}
 			}
-			/*if len(msg.Channel)>0{
+			if len(msg.Channel)>0{
 				//按频道广播，可指定多个频道[]string
 				err:=wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
 				if err!=nil {
 					log.Println("wsPool.Broadcast(msg)", err.Error())
 				}
-			}*/
+			}
 			//或都全局广播，所有连接都进行发送
-		/*	err:=wsPool.BroadcastAll(msg)
+			err:=wsPool.BroadcastAll(msg)
 			if err!=nil {
 				log.Println("wsPool.BroadcastAll(msg)", err.Error())
-			}*/
+			}
 
 		})
 		//连接断开回调

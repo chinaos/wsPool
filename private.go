@@ -1,9 +1,7 @@
 package wsPool
 
 import (
-	"errors"
-	"github.com/gogo/protobuf/proto"
-	"time"
+	"google.golang.org/protobuf/proto"
 )
 
 /*
@@ -93,52 +91,3 @@ func unMarshal(data []byte) (*SendMsg, error) {
 	 }
  	return result!=-1
  }
-
-
-/*包级的私有方法*/
-
-
-//通过连接池广播消息，每次广播只能指定一个类型下的一个频道
-/*
-广播消息每次只能指定一个类型和一个频道
-广播消息分两种情况
-并且只针对频道内的连接进行处理
-*/
-
-func broadcast(msg *SendMsg) error {
-	if  len(msg.Channel)==0 {
-		return errors.New("广播消息的消息体中未指定Channel频道！")
-	}
-	if len(wsSever.hub.chanBroadcast)>255{
-		return errors.New("Channel广播消息的管道己经写满，请稍后再试！")
-	}
-	timeout := time.NewTimer(time.Millisecond * 800)
-	select {
-	case wsSever.hub.chanBroadcast<-msg:
-		return nil
-	case <-timeout.C:
-		return errors.New("chanBroadcast消息管道blocked,写入消息超时")
-		/*default:
-			c.onError(errors.New("sendCh消息管道blocked,无法写入"))*/
-	}
-}
-
-
-/*
-全局广播
-通过此方法进行广播的消息体，会对所有的类型和频道都进行广播
-*/
-func broadcastAll(msg *SendMsg) error {
-	if len(wsSever.hub.broadcast)>255{
-		return errors.New("广播消息的管道己经写满，请稍后再试！")
-	}
-	timeout := time.NewTimer(time.Millisecond * 800)
-	select {
-	case wsSever.hub.broadcast<-msg:
-		return nil
-	case <-timeout.C:
-		return errors.New("broadcast消息管道blocked,写入消息超时")
-		/*default:
-			c.onError(errors.New("sendCh消息管道blocked,无法写入"))*/
-	}
-}

@@ -22,11 +22,9 @@ type hub struct {
 
 	// Inbound messages from the clients.
 	//可以用于广播所有连接对象
-	broadcast chan *SendMsg
 	broadcastQueue *queue.PriorityQueue
 
 	//广播指定频道的管道
-	chanBroadcast chan *SendMsg
 	chanBroadcastQueue *queue.PriorityQueue
 
 	// Register requests from the clients.
@@ -46,8 +44,6 @@ type oldMsg struct {
 
 func newHub() *hub {
 	return &hub{
-		broadcast:  	make(chan *SendMsg,64),
-		chanBroadcast:  make(chan *SendMsg,64),
 		register:   	make(chan *Client,20480),
 		unregister: 	make(chan string,20480),
 		clients:    	gmap.NewStrAnyMap(true),//make(map[string]*Client),//
@@ -98,49 +94,6 @@ func (h *hub) run() {
 		}
 	}
 }
-/*
-func (h *hub) runbroadcast() {
-	for {
-		select {
-
-		case message := <-h.broadcast:
-			//log.Println("全局广播消息：",message,"消息总数：",len(h.broadcast))
-			//全局广播消息处理
-			h.clients.Iterator(func(id string, v interface{}) bool {
-				if v != nil {
-					client := v.(*Client)
-					if !client.IsClose {
-						message.ToClientId = id
-						client.Send(message)
-					}
-				}
-				return true
-			})
-
-		case message := <-h.chanBroadcast:
-			//log.Println("频道广播消息：",message,"消息总数：",len(h.chanBroadcast))
-			//广播指定频道的消息处理
-			h.clients.Iterator(func(id string, v interface{}) bool {
-				if v != nil {
-					client := v.(*Client)
-					if !client.IsClose {
-						for _, ch := range message.Channel {
-							if searchStrArray(client.channel, ch) {
-								message.ToClientId = id
-								err := client.Send(message)
-								if err != nil {
-									client.onError(errors.New("连接ID：" + client.Id + "广播消息出现错误：" + err.Error()))
-								}
-							}
-						}
-					}
-				}
-				return true
-			})
-		}
-	}
-}*/
-
 func (h *hub) ticker() {
 	//定时清理连接对象
 	gtimer.AddSingleton(10*time.Second, func() {
@@ -161,8 +114,8 @@ func (h *hub) ticker() {
 	})
 	//定时发送广播队列
 	gtimer.AddSingleton(500*time.Microsecond, func() {
-		n := len(h.broadcast)
-		if(n==0&&h.broadcastQueue.Len()>0) {
+		if(h.broadcastQueue.Len()>0) {
+
 			item:=h.broadcastQueue.Pop()
 			if item!=nil {
 				message:=item.Data.(*SendMsg)
@@ -180,8 +133,7 @@ func (h *hub) ticker() {
 				//broadcastAll(message)
 			}
 		}
-		n = len(h.chanBroadcast)
-		if(n==0&&h.chanBroadcastQueue.Len()>0) {
+		if(h.chanBroadcastQueue.Len()>0) {
 			item:=h.chanBroadcastQueue.Pop()
 			if item!=nil {
 				message:=item.Data.(*SendMsg)
@@ -211,6 +163,8 @@ func (h *hub) ticker() {
 	//定时清理广播队列超时的消息
 	gtimer.AddSingleton(30*time.Second, func() {
  		//定时检查队列中过期的消息
+		log.Println("chanBroadcastQueue的长度：", h.chanBroadcastQueue.Len())
+		log.Println("broadcastQueue的长度：", h.broadcastQueue.Len())
 		h.clearExpirationsBroadcastMessage()
 	})
 

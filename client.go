@@ -10,6 +10,7 @@ import (
 	"gitee.com/rczweb/wsPool/util/queue"
 	"github.com/gogf/gf/os/gtimer"
 	"github.com/gorilla/websocket"
+	"log"
 	"net/http"
 	"time"
 )
@@ -263,6 +264,7 @@ func (c *Client) tickers() {
 		if c.IsClose {
 			return
 		}
+		log.Println("sendChQueue的长度：", c.sendChQueue.Len())
 		c.sendChQueue.Expirations(func(item *queue.Item) {
 			c.grpool.Add(func() {
 				c.expirationsMessage(item.Data.([]byte))
@@ -270,11 +272,6 @@ func (c *Client) tickers() {
 		})
 	})
 }
-
-
-
-
-
 
 /*当前连接队列消息超时处理方法*/
 func (c *Client) expirationsMessage(data []byte) {
