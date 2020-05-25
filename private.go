@@ -1,6 +1,6 @@
 package wsPool
 
-import "github.com/gogo/protobuf/proto"
+import "google.golang.org/protobuf/proto"
 
 /*
 client连接对象的私有方法
