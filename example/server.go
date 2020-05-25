@@ -10,7 +10,7 @@ import (
 )
 
 
-var addr = flag.String("addr", ":8080", "http service address")
+var addr = flag.String("addr", ":8081", "http service address")
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL)
@@ -39,8 +39,6 @@ func chfun(i int){
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
-
 
 	/*	for i:=0;i<10000 ;i++  {
 			go chfun(i)
@@ -82,10 +80,13 @@ func main() {
 			Id:list[0], //连接标识
 			Type:"ws", //连接类型
 			Channel:list[1:], //指定频道
+			Goroutine:10240,
 		})
+		log.Println(client.Id,"实例化连接对象完成")
 
 		//开启连接
 		client.OpenClient(w,r,head)
+		log.Println(client.Id,"开启连接")
 
 		//连接成功回调
 		client.OnOpen(func() {
@@ -94,19 +95,35 @@ func main() {
 
 		//接收消息
 		client.OnMessage(func(msg *wsPool.SendMsg) {
+			if msg.Status==3 {
+				log.Println("OnMessage:收到出错消息=》",client.Id,msg.Desc)
+				return
+			}
 			//log.Println(""+msg.Msg)
 			if msg.ToClientId!="" {
 				//发送消息给指定的ToClientID连接
-				wsPool.Send(msg)
+				err:=wsPool.Send(msg)
+				if err!=nil {
+					log.Println("wsPool.Send(msg):",err.Error())
+				}
 				//发送消息给当前连接对象
-				client.Send(msg)
+				err=client.Send(msg)
+				if err!=nil {
+					log.Println("client.Send(msg):", err.Error())
+				}
 			}
 			if len(msg.Channel)>0{
 				//按频道广播，可指定多个频道[]string
-				wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
+				err:=wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
+				if err!=nil {
+					log.Println("wsPool.Broadcast(msg)", err.Error())
+				}
 			}
 			//或都全局广播，所有连接都进行发送
-			wsPool.BroadcastAll(msg)
+			err:=wsPool.BroadcastAll(msg)
+			if err!=nil {
+				log.Println("wsPool.BroadcastAll(msg)", err.Error())
+			}
 
 		})
 		//连接断开回调
@@ -125,7 +142,7 @@ func main() {
 			log.Printf("收到连接的Ping:%s",client.Id)
 			//cache.PageApiPool.Remove(connOjb.Id)
 		})
-
+		r.Close=true
 	})
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {

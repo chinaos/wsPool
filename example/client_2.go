@@ -9,28 +9,32 @@ package main
 import (
 	"flag"
 	"fmt"
+	"gitee.com/rczweb/wsPool"
+	"github.com/gogf/gf/util/grand"
 	"github.com/gogo/protobuf/proto"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
+	"runtime"
 	"time"
-	"wsPool"
-
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8080", "http service address")
+var addr = flag.String("addr", "localhost:8081", "http service address")
 
 func main() {
-	for i:=1;i<1000 ;i++  {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	for i:=1;i<5000 ;i++  {
 		go wsClient(fmt.Sprintf("%d_1_3",i))
 	}
 	select {
 
 	}
 }
+
+
 
 
 func wsClient(id string) {
@@ -49,7 +53,13 @@ func wsClient(id string) {
 	if err != nil {
 		log.Fatal("dial:", err)
 	}
-	defer c.Close()
+	defer func() {
+		c.Close()
+		//重新连接
+		t:=grand.N(10,90)
+		time.Sleep(time.Duration(t)*time.Second)
+		go wsClient(id)
+	}()
 	ping := make(chan int)
 	c.SetPingHandler(func(appData string) error {
 		ping<-1;
@@ -57,9 +67,13 @@ func wsClient(id string) {
 	})
 
 	done := make(chan struct{})
-
+	t:=grand.N(30,90)
 	go func() {
-		defer close(done)
+		ticker1 := time.NewTicker(time.Duration(t)*time.Second)
+		defer func() {
+			ticker1.Stop()
+			close(done)
+		}()
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
@@ -67,12 +81,16 @@ func wsClient(id string) {
 				return
 			}
 			log.Printf("recv: %s", message)
+			select{
+				case  <-ticker1.C:
+					//return
+			}
 		}
 	}()
 
 	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
 
+	defer ticker.Stop()
 	for {
 		select {
 		case <-done:
@@ -111,6 +129,7 @@ func wsClient(id string) {
 				log.Printf("write pong:%s", err.Error())
 				return
 			}
+			//return
 		}
 	}
 }

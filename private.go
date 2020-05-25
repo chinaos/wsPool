@@ -85,6 +85,7 @@ func unMarshal(data []byte) (*SendMsg, error) {
 }
 
 
+
  func searchStrArray(arr []string,ch string) bool{
 	 result := -1
 	 for index, v := range arr{
