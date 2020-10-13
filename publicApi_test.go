@@ -24,8 +24,8 @@ func TestNewClient(t *testing.T) {
 				log.Println("用户ID",connOjb.Id,"连接成功！")
 			})
 			//ws连接的事件侦听
-			connOjb.OnMessage(func(msg *SendMsg) {
-				log.Println(connOjb.Id,"收到消息",msg.GetCmd())
+			connOjb.OnMessage(func(msg []byte) {
+				log.Println(connOjb.Id,"收到消息",msg)
 			})
 
 			connOjb.OnPing(func() {

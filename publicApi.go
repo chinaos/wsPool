@@ -3,7 +3,7 @@ package wsPool
 import (
 	"errors"
 	"gitee.com/rczweb/wsPool/util/grpool"
-	"gitee.com/rczweb/wsPool/util/queue"
+	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
 )
@@ -14,7 +14,7 @@ import (
 */
 func NewClient(conf *Config) *Client{
 	if conf.Goroutine==0{
-		conf.Goroutine=4096
+		conf.Goroutine=1024
 	}
 	var client *Client
 	oldclient:=wsSever.hub.clients.Get(conf.Id)
@@ -29,26 +29,19 @@ func NewClient(conf *Config) *Client{
 		types:conf.Type,
 		channel:conf.Channel,
 		hub: wsSever.hub,
-		sendCh: make(chan []byte,4096),
+		sendCh: make(chan sendMessage,4096),
 
 		ping: make(chan int),
 		sendPing:make(chan int),
 		IsClose:true,
 		grpool:grpool.NewPool(conf.Goroutine),
 	}
-	oldMsgQ:=wsSever.hub.oldMsgQueue.Get(conf.Id)
-	if oldMsgQ != nil{
-		q:=oldMsgQ.(*oldMsg)
-		client.sendChQueue=q.list
-		wsSever.hub.oldMsgQueue.Remove(conf.Id)
-	}else{
-		client.sendChQueue=queue.NewPriorityQueue()
-	}
 	client.OnError(nil)
 	client.OnOpen(nil)
 	client.OnPing(nil)
 	client.OnPong(nil)
 	client.OnMessage(nil)
+	client.OnMessageString(nil)
 	client.OnClose(nil)
 	return client
 }
@@ -73,6 +66,7 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(str string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait));
+		c.sendPing<-1
 		c.grpool.Add(c.onPong)
 		return nil
 	})
@@ -98,23 +92,29 @@ func (c *Client)OpenClient(w http.ResponseWriter, r *http.Request, head http.Hea
 	c.hub.register <- c
 	go c.writePump()
 	go c.readPump()
-	go c.tickers()
+	//c.sendPing<-1
+	//go c.tickers()
 	c.onOpen()
 }
 
-/*
-获取连接对像运行过程中的信息
-*/
-func (c *Client) GetRuntimeInfo() *RuntimeInfo{
-	return &RuntimeInfo{
-		Id:c.Id,
-		Type:c.types,
-		Channel:c.channel,
-		OpenTime:c.openTime,
-		LastReceiveTime:c.lastSendTime,
-		LastSendTime:c.lastSendTime,
-		Ip:c.conn.RemoteAddr().String(),
-	}
+
+func (c *Client) GetConnectType() string{ //获取连接类型
+	return c.types
+}
+func (c *Client) GetChannel() []string{ //获取连接对象注册的频道
+	return c.channel
+}
+func (c *Client) GetOpenTime() time.Time{ //获取连接打开的时间
+	return c.openTime
+}
+func (c *Client) GetLastReceiveTime() time.Time{ //获取连接最后接收消息的时间
+	return c.openTime
+}
+func (c *Client) GetLastSendTime() time.Time{ //获取连接最后发送消息的时间
+	return c.lastSendTime
+}
+func (c *Client) GetConnectIp() string{ //获取连接客户端ip
+	return c.conn.RemoteAddr().String()
 }
 
 
@@ -153,10 +153,13 @@ func (c *Client) OnPong(h func()){
 	c.onPong=h
 }
 
-/*监听连接对象的连接open成功的事件*/
-func (c *Client) OnMessage( h func(msg *SendMsg)){
+/*
+监听连接对象的连接open成功的事件
+接收byte类型消息
+*/
+func (c *Client) OnMessage(h func(msg []byte)){
 	if h==nil{
-		c.onMessage= func(msg *SendMsg) {
+		c.onMessage= func(msg []byte) {
 
 		}
 		return
@@ -164,8 +167,22 @@ func (c *Client) OnMessage( h func(msg *SendMsg)){
 	c.onMessage=h
 }
 
+/*
+监听连接对象的连接open成功的事件
+接收string类型消息
+*/
+func (c *Client) OnMessageString(h func(msg string)){
+	if h==nil{
+		c.onMessageString= func(msg string) {
+
+		}
+		return
+	}
+	c.onMessageString=h
+}
+
 /*监听连接对象的连接open成功的事件*/
-func (c *Client) OnClose( h func()){
+func (c *Client) OnClose(h func()){
 	if h==nil{
 		c.onClose= func() {
 
@@ -187,102 +204,110 @@ func (c *Client) OnError(h func(err error)){
 
 
 // 单个连接发送消息
-func (c *Client) Send(msg *SendMsg) error  {
+/*
+messageType=1 为string
+messageType=2 为[]byte
+msg 为消息内容按指定的类型输入
+*/
+func (c *Client) Send(messageType int,msg interface{}) error  {
 	if c.IsClose {
 		return errors.New("连接ID："+c.Id+"ws连接己经断开，无法发送消息")
 	}
-	msg.ToClientId=c.Id
-	data, err := marshal(msg)
-	if err != nil {
-		return errors.New("连接ID："+c.Id+"生成protubuf数据失败！原因：:"+err.Error())
+	if messageType>2 {
+		return errors.New("连接ID："+c.Id+"消息类型错误！")
 	}
-	//log.Debug("连接：" + msg.ToClientId + "开始发送消息！");
-	c.sendChQueue.Push(&queue.Item{
-		Data:data,
-		Priority:1,
-		AddTime:time.Now(),
-		Expiration:60,
-	})
+	if msg==nil {
+		return errors.New("连接ID："+c.Id+"发送的消息内容不能为空！")
+	}
+	switch messageType {
+	case websocket.TextMessage:
+		c.send(sendMessage{
+			MessageType: messageType,
+			Msgbytes: []byte(msg.(string)),
+		})
+	case websocket.BinaryMessage:
+		c.send(sendMessage{
+			MessageType: messageType,
+			Msgbytes: msg.([]byte),
+		})
+	}
 	return nil
 }
+
+
 
 //服务主动关闭连接
 func (c *Client) Close() {
 	c.close()
 }
 
-
-
-
 /*
 包级的公开方法
 所有包级的发送如果连接断开，消息会丢失
 */
+
+//通过连接池广播消息，每次广播只能指定一个类型下的一个频道
+
 /*
-// 发送消息 只从连接池中按指定的toClientId的连接对象发送出消息
-在此方法中sendMsg.Channel指定的值不会处理
-
+广播消息方法
+messageType=1 为string
+messageType=2 为[]byte
+msg 为消息内容按指定的类型输入
+channel 为指定频道进行广播可为空，也多个
+	如果没有指定channel 是广播所有连接
+	注意，channel不能为0
 */
-func Send(msg *SendMsg) error {
-	//log.Info("发送指令：",msg.Cmd,msg.ToClientId)
 
-	if msg.ToClientId=="" {
-		return errors.New("发送消息的消息体中未指定ToClient目标！")
+
+func Broadcast(messageType int,msg interface{},channel ...string) error {
+
+	if messageType>2 {
+		return errors.New("广播的消息类型错误！")
 	}
-	c:=wsSever.hub.clients.Get(msg.ToClientId)
-	if c!=nil {
-		client:=c.(*Client)
-		if client.Id==msg.ToClientId{
-			if client.IsClose {
-				return errors.New("包级发送消息sendByToClientId错误：连接对像："+client.Id+"连接状态异常，连接己经关闭！")
-			}else{
-				msg.ToClientId=client.Id
-				err := client.Send(msg)
-				if err != nil {
-					return errors.New("发送消息出错："+ err.Error()+",连接对象id="+client.Id+"。")
-				}
-			}
+	if msg==nil {
+		return errors.New("广播发送的消息内容不能为空！")
+	}
+	var smsg sendMessage
+	switch messageType {
+	case websocket.TextMessage:
+		smsg=sendMessage{
+			MessageType: messageType,
+			Msgbytes: []byte(msg.(string)),
+		}
+	case websocket.BinaryMessage:
+		smsg=sendMessage{
+			MessageType: messageType,
+			Msgbytes: msg.([]byte),
+		}
+	}
+
+	if len(channel)==0 {
+		return wsSever.hub.brostcastMsg(broadcastMessage{
+			Channel:"0",
+			Msg: smsg,
+		})
+	}else{
+		for _, o := range channel {
+			return wsSever.hub.brostcastMsg(broadcastMessage{
+				Channel:o,
+				Msg: smsg,
+			})
 		}
 	}
 	return nil
 }
 
-//通过连接池广播消息，每次广播只能指定一个类型下的一个频道
 
 /*
-广播一定要设置toClientId,这个对象可以确定广播超时消息回复对像
-并且只针对频道内的连接进行处理
+通过id获取相应的连接对象
 */
-
-func Broadcast(msg *SendMsg) error {
-	if  len(msg.Channel)==0 {
-		return errors.New("广播消息的消息体中未指定Channel频道！")
+func GetClientById(id string) *Client  {
+	c:= wsSever.hub.clients.Get(id)
+	if c!=nil {
+		return c.(*Client)
 	}
-	wsSever.hub.chanBroadcastQueue.Push(&queue.Item{
-		Data:msg,
-		Priority:1,
-		AddTime:time.Now(),
-		Expiration:60,
-	})
 	return nil
 }
-
-
-/*
-全局广播
-广播一定要设置toClientId,这个对象可以确定广播超时消息回复对像
-通过此方法进行广播的消息体，会对所有的类型和频道都进行广播
-*/
-func BroadcastAll(msg *SendMsg) error {
-	wsSever.hub.broadcastQueue.Push(&queue.Item{
-		Data:msg,
-		Priority:1,
-		AddTime:time.Now(),
-		Expiration:60,
-	})
-	return nil
-}
-
 
 
 

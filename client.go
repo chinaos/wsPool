@@ -6,11 +6,7 @@ package wsPool
 
 import (
 	"errors"
-	"gitee.com/rczweb/wsPool/util/grpool"
-	"gitee.com/rczweb/wsPool/util/queue"
-	"github.com/gogf/gf/os/gtimer"
 	"github.com/gorilla/websocket"
-	"log"
 	"net/http"
 	"time"
 )
@@ -58,6 +54,11 @@ type RuntimeInfo struct {
 	LastSendTime    time.Time //最后一次发送数据的时间
 }
 
+type sendMessage struct {
+	MessageType int //消息类型1为string 2为[]byte
+	Msgbytes []byte //byte消息内容
+}
+
 
 // Client is a middleman between the websocket connection and the hub.
 type Client struct {
@@ -73,20 +74,17 @@ type Client struct {
 	CloseTime int64 //连接断开的时间
 	channel []string //连接注册频道类型方便广播等操作。做为一个数组存储。因为一个连接可以属多个频道
 	// Buffered channel of outbound messages.
-	grpool *grpool.Pool
-	sendCh chan []byte
-	sendChQueue *queue.PriorityQueue
-	readSendChQueueTimer *gtimer.Entry //定时读取队列消息的定时器
-	clearSendChQueueTimer *gtimer.Entry //定时清理队列消息的定时器
+	grpool *Pool
+	sendCh chan sendMessage
 	sendPing chan int
-	sendPingTimer *gtimer.Entry //定时发送ping的定时器
 	ping chan int //收到ping的存储管道，方便回复pong处理
 	ticker  *time.Ticker //定时发送ping的定时器
 	onError func(error)
 	onOpen func()  //连接成功的回调
 	onPing func()  //收到ping
 	onPong func()  //收到pong
-	onMessage func(*SendMsg)
+	onMessage func([]byte)
+	onMessageString func(string)
 	onClose func()
 }
 
@@ -105,7 +103,7 @@ func (c *Client) readPump() {
 		if c.IsClose {
 			return
 		}
-			_, message, err := c.conn.ReadMessage()
+			messageType, message, err := c.conn.ReadMessage()
 			if err != nil {
 				if websocket.IsUnexpectedCloseError(err,
 					websocket.CloseAbnormalClosure,
@@ -132,33 +130,21 @@ func (c *Client) readPump() {
 			}
 			c.conn.SetReadDeadline(time.Now().Add(pongWait))
 
-			c.grpool.Add(func() {
-				c.readMessage(message)
-			})
+		switch messageType {
+			case websocket.TextMessage:
+				c.grpool.Add(func() {
+					c.onMessageString(string(message))
+				})
+			case websocket.BinaryMessage:
+				c.grpool.Add(func() {
+					c.onMessage(message)
+				})
+
+		}
+
+
 	}
 }
-
-// 单个连接接收消息
-func (c *Client) readMessage(data []byte) {
-	c.lastReceiveTime = time.Now()
-	message, err := unMarshal(data)
-	if err != nil {
-		c.onError(errors.New("接收数据ProtoBuf解析失败！！连接ID："+c.Id+"原因："+err.Error()))
-		return
-	}
-/*	//ToClientId与Channel不能同时存在！！！注意！！！！
-	if message.ToClientId!="" {
-		Send(message)
-	}
-	//ToClientId与Channel不能同时存在！！！注意！！！！
-	if message.Channel!="" {
-		Broadcast(message)
-	}*/
-
-	//收到消息触发回调
-	c.onMessage(message)
-}
-
 
 
 
@@ -186,21 +172,18 @@ func (c *Client) writePump() {
 				//glog.Error("连接ID："+c.Id,"wsServer发送消息失败,一般是连接channel已经被关闭：(此处服务端会断开连接，使客户端能够感知进行重连)")
 				return
 			}
-			w, err := c.conn.NextWriter(websocket.BinaryMessage)
+			err:=c.conn.WriteMessage(message.MessageType,message.Msgbytes)
 			if err != nil {
+				c.onError(errors.New("连接ID："+c.Id+"发送消息失败！连接中断"+err.Error()))
 				return
 			}
 			c.lastSendTime = time.Now()
-			_,err=w.Write(message)
-			if err != nil {
-				c.onError(errors.New("连接ID："+c.Id+"写消息进写入IO错误！连接中断"+err.Error()))
-				return
-			}
 			// Add queued chat messages to the current websocket message.
 			n := len(c.sendCh)
 			if(n>0){
 				for i := 0; i < n; i++ {
-					_,err=w.Write(<-c.sendCh)
+					m:= <-c.sendCh
+					err:=c.conn.WriteMessage(m.MessageType,m.Msgbytes)
 					if err != nil {
 						c.onError(errors.New("连接ID："+c.Id+"写上次连接未发送的消息消息进写入IO错误！连接中断"+err.Error()))
 						return
@@ -208,11 +191,6 @@ func (c *Client) writePump() {
 				}
 			}
 
-			//关闭写入io对象
-			if err := w.Close(); err != nil {
-				c.onError(errors.New("连接ID："+c.Id+"关闭写入IO对象出错，连接中断"+err.Error()))
-				return
-			}
 
 		case p, ok :=<-c.sendPing: //定时发送ping
 			if !ok {
@@ -240,69 +218,10 @@ func (c *Client) writePump() {
 	}
 }
 
-func (c *Client) tickers() {
-	c.sendPingTimer=gtimer.AddSingleton(pingPeriod, func() {
-		if c.IsClose {
-			return
-		}
-		c.sendPing<-1
-	})
-	c.readSendChQueueTimer=gtimer.AddSingleton(10*time.Microsecond, func() {
-		if c.IsClose || c.sendChQueue==nil{
-			return
-		}
-		n := len(c.sendCh)
-		if(n<4088&&c.sendChQueue.Len()>0) {
-			item:=c.sendChQueue.Pop()
-			if item!=nil {
-				msg:=item.Data.([]byte)
-				c.send(msg)
-			}
-		}
-	})
-	c.clearSendChQueueTimer=gtimer.AddSingleton(30*time.Second, func() {
-		if c.IsClose {
-			return
-		}
-		log.Println("sendChQueue的长度：", c.sendChQueue.Len())
-		c.sendChQueue.Expirations(func(item *queue.Item) {
-			c.grpool.Add(func() {
-				c.expirationsMessage(item.Data.([]byte))
-			})
-		})
-	})
-}
-
-/*当前连接队列消息超时处理方法*/
-func (c *Client) expirationsMessage(data []byte) {
-	message, err := unMarshal(data)
-	if err != nil {
-		c.onError(errors.New("超时消息数据ProtoBuf解析失败！！连接ID："+c.Id+"原因："+err.Error()))
-		return
-	}
-	message.Status=3
-	message.Msg="goSendTimeout"
-	message.Desc="（由于网络或消息量超出限制）连接池中的消息队列处理超时！"
-	//收到消息触发回调
-	c.onMessage(message)
-}
-
-/*广播消息队列消息超时处理主法*/
-func (c *Client) expirationsBroadcastMessage(message *SendMsg) {
-	message.Status=3
-	message.Msg="goBroadcastTimeout"
-	message.Desc="（由于网络或消息量超出限制）连接池中的广播消息队列处理超时！"
-	//收到消息触发回调
-		c.onMessage(message)
-}
 
 
 
-
-
-
-
-func (c *Client) send(msg []byte)  {
+func (c *Client) send(msg sendMessage)  {
 	if c.IsClose{
 		c.onError(errors.New("连接"+c.Id+",连接己在关闭，消息发送失败"))
 		return
@@ -322,9 +241,6 @@ func (c *Client) send(msg []byte)  {
 
 func (c *Client) close() {
 	c.IsClose=true
-	c.sendPingTimer.Close()
-	c.clearSendChQueueTimer.Close()
-	c.readSendChQueueTimer.Close()
 	c.conn.Close()
 	//触发连接关闭的事件回调
 	c.onClose() //先执行完关闭回调，再请空所有的回调
@@ -333,6 +249,7 @@ func (c *Client) close() {
 	c.OnPing(nil)
 	c.OnPong(nil)
 	c.OnMessage(nil)
+	c.OnMessageString(nil)
 	c.OnClose(nil)
 	c.hub.unregister<-c.Id
 }

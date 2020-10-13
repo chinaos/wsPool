@@ -3,10 +3,7 @@
 #### 介绍
 golang websocket 连接池
 
-依赖了goframe 框架（很优秀的框架）的部分库
-基于gorilla/websocket和protobuf实现
-
-同时支持各种类型的数据交互
+支持各种类型的数据交互
 
 
 #### examples
@@ -71,29 +68,6 @@ func main() {
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
-}
-
-
-```
-
-### 基层的protobuf格式
-除 toClientId,fromClientId,channel外 其它都可以随意定议，增减都可以。
-
-```$xslt
-
-message SendMsg {
-  int32 cmd =1;  //指令编号
-  int64 timestamp  = 2; //消息发送时间
-  string fromClientId =3;  //指令消息的来源。发送者的连接ID
-  string toClientId = 4;  //指令消息的接收者。发送给对应的客户端连接ID
-  bytes cmdData =5;  //对应指令的CmdData1的protobuf的message
-  int32 status=6;  //消息发送响应状态
-  int32 priority=7; //用于处理指令队列的优先级的权重值
-  string localId = 8; //客户端标识消息的id，主要区分相同cmd的不同消息，方便收到回复分发处理等效果,考虑长度问题定义成string
-  string serverId = 9; //服务端发送消息的ID,主要区分相同cmd的不同消息，方便服务端收到回复分发处理等效果 考虑长度问题定义成string
-  repeated string channel = 10; //指定需要广播的频道，可以指定一个或多个频道
-  string msg =11; //一般用于json数据传递，或消息发送响应内容
-  string Desc=12; //消息介绍内容，或其它数据
 }
 
 

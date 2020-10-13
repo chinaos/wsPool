@@ -1,16 +1,16 @@
 package main
 
 import (
+	"flag"
+	"gitee.com/rczweb/wsPool"
+	"log"
 	"net/http"
 	"runtime"
 	"strings"
-	"log"
-	"flag"
-	"gitee.com/rczweb/wsPool"
 )
 
 
-var addr = flag.String("addr", ":8081", "http service address")
+var addr = flag.String("addr", "192.168.0.8:8081", "http service address")
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL)
@@ -80,7 +80,7 @@ func main() {
 			Id:list[0], //连接标识
 			Type:"ws", //连接类型
 			Channel:list[1:], //指定频道
-			Goroutine:10240,
+			Goroutine:32,
 		})
 		log.Println(client.Id,"实例化连接对象完成")
 
@@ -92,35 +92,19 @@ func main() {
 		client.OnOpen(func() {
 			log.Printf("连接己开启%s",client.Id)
 		})
-
+		i:=1
 		//接收消息
-		client.OnMessage(func(msg *wsPool.SendMsg) {
-			if msg.Status==3 {
-				log.Println("OnMessage:收到出错消息=》",client.Id,msg.Desc)
-				return
-			}
-			//log.Println(""+msg.Msg)
-			if msg.ToClientId!="" {
-				//发送消息给指定的ToClientID连接
-				err:=wsPool.Send(msg)
+		client.OnMessageString(func(msg string) {
+
+				log.Println("OnMessage:收到消息=》",client.Id,msg)
+				i++
+
+				/*err:=client.Send(1,"回复客户端消息"+client.Id+string(i))
 				if err!=nil {
-					log.Println("wsPool.Send(msg):",err.Error())
-				}
-				//发送消息给当前连接对象
-				err=client.Send(msg)
-				if err!=nil {
-					log.Println("client.Send(msg):", err.Error())
-				}
-			}
-			if len(msg.Channel)>0{
-				//按频道广播，可指定多个频道[]string
-				err:=wsPool.Broadcast(msg) //或者 wsPool.Broadcast(msg)
-				if err!=nil {
-					log.Println("wsPool.Broadcast(msg)", err.Error())
-				}
-			}
-			//或都全局广播，所有连接都进行发送
-			err:=wsPool.BroadcastAll(msg)
+					log.Println("发送消息出错", err.Error())
+				}*/
+
+			err:=wsPool.Broadcast(1,"wsPool.Broadcast"+client.Id+string(i),client.GetChannel()[0])
 			if err!=nil {
 				log.Println("wsPool.BroadcastAll(msg)", err.Error())
 			}
@@ -135,11 +119,11 @@ func main() {
 		})
 
 		client.OnPong(func() {
-			log.Printf("收到连接的Pong:%s",client.Id)
+			//log.Printf("收到连接的Pong:%s",client.Id)
 			//cache.PageApiPool.Remove(connOjb.Id)
 		})
 		client.OnPing(func() {
-			log.Printf("收到连接的Ping:%s",client.Id)
+			//log.Printf("收到连接的Ping:%s",client.Id)
 			//cache.PageApiPool.Remove(connOjb.Id)
 		})
 		r.Close=true

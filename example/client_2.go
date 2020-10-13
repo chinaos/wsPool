@@ -9,9 +9,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"gitee.com/rczweb/wsPool"
-	"github.com/gogf/gf/util/grand"
-	"github.com/gogo/protobuf/proto"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"net/url"
@@ -19,14 +17,14 @@ import (
 	"os/signal"
 	"runtime"
 	"time"
-	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:8081", "http service address")
+var addr = flag.String("addr", "192.168.0.8:8081", "http service address")
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	for i:=1;i<5000 ;i++  {
+	for i:=1;i<5001 ;i++  {
+		time.Sleep(10*time.Millisecond)
 		go wsClient(fmt.Sprintf("%d_1_3",i))
 	}
 	select {
@@ -56,8 +54,7 @@ func wsClient(id string) {
 	defer func() {
 		c.Close()
 		//重新连接
-		t:=grand.N(10,90)
-		time.Sleep(time.Duration(t)*time.Second)
+		time.Sleep(time.Duration(5)*time.Second)
 		go wsClient(id)
 	}()
 	ping := make(chan int)
@@ -67,43 +64,38 @@ func wsClient(id string) {
 	})
 
 	done := make(chan struct{})
-	t:=grand.N(30,90)
+	//t:=grand.N(30,90)
 	go func() {
-		ticker1 := time.NewTicker(time.Duration(t)*time.Second)
+		//ticker1 := time.NewTicker(time.Duration(t)*time.Second)
 		defer func() {
-			ticker1.Stop()
+			//ticker1.Stop()
 			close(done)
 		}()
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Printf("read:%s", err.Error())
+				log.Printf("read:%s,%s", id,err.Error())
 				return
 			}
-			log.Printf("recv: %s", message)
-			select{
+			log.Printf("recv:id===>%s, %s",id, message)
+			/*select{
 				case  <-ticker1.C:
 					//return
-			}
+			}*/
 		}
 	}()
 
 	ticker := time.NewTicker(time.Second)
-
+	i:=1
 	defer ticker.Stop()
 	for {
 		select {
 		case <-done:
 			return
 		case  <-ticker.C:
-			msg:=&wsPool.SendMsg{
-				ToClientId:"12",
-				FromClientId:"13",
-				Msg:"test"+time.Now().String(),
-				Channel:[]string{"1","2"},
-			}
-			m,_:=proto.Marshal(msg)
-			err := c.WriteMessage(websocket.BinaryMessage, m)
+			i++
+			msg:=id+"==="+string(i)
+			err := c.WriteMessage(websocket.TextMessage, []byte(msg))
 			if err != nil {
 				log.Printf("write:%s", err.Error())
 				return
