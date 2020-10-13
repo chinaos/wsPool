@@ -20,27 +20,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2d4921d4-f737-4fdb-a48e-fe3b7ec9b9cd" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/util/gmap/empty.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/util/gmap/gmap_hash_str_any_map.go" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/util/gmap/rwmutex.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/client.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/client_2.go" beforeDir="false" afterPath="$PROJECT_DIR$/example/client_2.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/go_build_client_2_go.exe" beforeDir="false" afterPath="$PROJECT_DIR$/example/go_build_client_2_go.exe" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/example/go_build_server_go.exe" beforeDir="false" afterPath="$PROJECT_DIR$/example/go_build_server_go.exe" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/example/server.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/hub.go" beforeDir="false" afterPath="$PROJECT_DIR$/hub.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/init.go" beforeDir="false" afterPath="$PROJECT_DIR$/init.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/private.go" beforeDir="false" afterPath="$PROJECT_DIR$/private.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/publicApi.go" beforeDir="false" afterPath="$PROJECT_DIR$/publicApi.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/publicApi_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/publicApi_test.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sendMsg.pb.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/sendMsg.proto" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/queue/CircularLinkedList.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/queue/priorityQueue.go" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/util/queue/priorityQueue_test.go" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -65,6 +49,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="DefaultGoTemplateProperty" value="Go File" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="configurable.Global.GOPATH.is.expanded" value="true" />
     <property name="configurable.Module.GOPATH.is.expanded" value="false" />

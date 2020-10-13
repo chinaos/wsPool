@@ -6,6 +6,7 @@ package wsPool
 
 import (
 	"errors"
+	"gitee.com/rczweb/wsPool/util/grpool"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
@@ -74,7 +75,7 @@ type Client struct {
 	CloseTime int64 //连接断开的时间
 	channel []string //连接注册频道类型方便广播等操作。做为一个数组存储。因为一个连接可以属多个频道
 	// Buffered channel of outbound messages.
-	grpool *Pool
+	grpool *grpool.Pool
 	sendCh chan sendMessage
 	sendPing chan int
 	ping chan int //收到ping的存储管道，方便回复pong处理
