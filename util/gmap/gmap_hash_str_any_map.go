@@ -9,10 +9,11 @@ package gmap
 
 import (
 	"encoding/json"
+	"gitee.com/rczweb/wsPool/util/rwmutex"
 )
 
 type StrAnyMap struct {
-	mu   RWMutex
+	mu   rwmutex.RWMutex
 	data map[string]interface{}
 }
 
@@ -21,7 +22,7 @@ type StrAnyMap struct {
 // which is false in default.
 func NewStrAnyMap(safe ...bool) *StrAnyMap {
 	return &StrAnyMap{
-		mu:   Create(safe...),
+		mu:   rwmutex.Create(safe...),
 		data: make(map[string]interface{}),
 	}
 }
@@ -31,7 +32,7 @@ func NewStrAnyMap(safe ...bool) *StrAnyMap {
 // there might be some concurrent-safe issues when changing the map outside.
 func NewStrAnyMapFrom(data map[string]interface{}, safe ...bool) *StrAnyMap {
 	return &StrAnyMap{
-		mu:   Create(safe...),
+		mu:   rwmutex.Create(safe...),
 		data: data,
 	}
 }

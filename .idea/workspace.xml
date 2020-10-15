@@ -22,9 +22,16 @@
     <list default="true" id="2d4921d4-f737-4fdb-a48e-fe3b7ec9b9cd" name="Default Changelist" comment="">
       <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/util/garray/garray_normal_str.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/util/rwmutex/rwmutex_z_bench_test.go" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/client.go" beforeDir="false" afterPath="$PROJECT_DIR$/client.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example/go_build_server_go.exe" beforeDir="false" afterPath="$PROJECT_DIR$/example/go_build_server_go.exe" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example/server.go" beforeDir="false" afterPath="$PROJECT_DIR$/example/server.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/publicApi.go" beforeDir="false" afterPath="$PROJECT_DIR$/publicApi.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/util/gmap/gmap_hash_str_any_map.go" beforeDir="false" afterPath="$PROJECT_DIR$/util/gmap/gmap_hash_str_any_map.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/util/gmap/rwmutex.go" beforeDir="false" afterPath="$PROJECT_DIR$/util/rwmutex/rwmutex.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/util/grpool/glist.go" beforeDir="false" afterPath="$PROJECT_DIR$/util/grpool/glist.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/util/grpool/rwmutex.go" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,12 +63,19 @@
     <property name="configurable.Project.GOPATH.is.expanded" value="true" />
     <property name="go.gopath.indexing.explicitly.defined" value="true" />
     <property name="go.import.settings.migrated" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/util" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="settings.editor.selected.configurable" value="com.goide.configuration.GoLibrariesConfigurableProvider" />
   </component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="E:\myProject\wsPool\util" />
+      <recent name="D:\myProject\wsPool\util" />
+      <recent name="D:\myProject\wsPool\util\gmap" />
+      <recent name="D:\myProject\wsPool" />
+      <recent name="D:\myProject\wsPool\example" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\myProject\wsPool" />
       <recent name="D:\myProject\wsPool\util\grpool" />
@@ -69,15 +83,8 @@
       <recent name="D:\myProject\wsPool\util" />
       <recent name="D:\myProject\wsPool\grpool" />
     </key>
-    <key name="CopyFile.RECENT_KEYS">
-      <recent name="D:\myProject\wsPool\util" />
-      <recent name="D:\myProject\wsPool\util\gmap" />
-      <recent name="D:\myProject\wsPool" />
-      <recent name="D:\myProject\wsPool\example" />
-      <recent name="D:\myProject\wsPool\grpool" />
-    </key>
   </component>
-  <component name="RunManager" selected="Go Build.go build client_2.go">
+  <component name="RunManager" selected="Go Build.go build server.go">
     <configuration name="go build client_2.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
       <module name="wsPool" />
       <working_directory value="$PROJECT_DIR$/" />
@@ -119,6 +126,9 @@
         <item itemvalue="Go Test.TestNewClient in gitee.com/rczweb/wsPool" />
       </list>
     </recent_temporary>
+  </component>
+  <component name="StructureViewFactory">
+    <option name="ACTIVE_ACTIONS" value=",ALPHA_COMPARATOR" />
   </component>
   <component name="SvnConfiguration">
     <configuration />
@@ -172,29 +182,29 @@
       <screen x="1920" y="0" width="1739" height="939" />
     </state>
     <state x="2530" y="272" key="#com.intellij.fileTypes.FileTypeChooser/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594286277474" />
-    <state width="846" height="466" key="DebuggerActiveHint" timestamp="1594366300212">
+    <state width="846" height="466" key="DebuggerActiveHint" timestamp="1602738936203">
       <screen x="1920" y="0" width="1739" height="939" />
     </state>
-    <state width="846" height="466" key="DebuggerActiveHint/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594366300212" />
-    <state width="868" height="882" key="GridCell.Tab.0.bottom" timestamp="1594431235093">
-      <screen x="0" y="0" width="1739" height="939" />
+    <state width="846" height="466" key="DebuggerActiveHint/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1602738936203" />
+    <state width="1740" height="884" key="GridCell.Tab.0.bottom" timestamp="1602738902632">
+      <screen x="1920" y="0" width="1739" height="939" />
     </state>
-    <state width="868" height="882" key="GridCell.Tab.0.bottom/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594376205761" />
+    <state width="1740" height="884" key="GridCell.Tab.0.bottom/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1602738902632" />
     <state width="868" height="882" key="GridCell.Tab.0.bottom/0.0.1739.939@0.0.1739.939" timestamp="1594431235093" />
-    <state width="868" height="882" key="GridCell.Tab.0.center" timestamp="1594431235093">
-      <screen x="0" y="0" width="1739" height="939" />
+    <state width="1740" height="884" key="GridCell.Tab.0.center" timestamp="1602738902632">
+      <screen x="1920" y="0" width="1739" height="939" />
     </state>
-    <state width="868" height="882" key="GridCell.Tab.0.center/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594376205761" />
+    <state width="1740" height="884" key="GridCell.Tab.0.center/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1602738902632" />
     <state width="868" height="882" key="GridCell.Tab.0.center/0.0.1739.939@0.0.1739.939" timestamp="1594431235093" />
-    <state width="868" height="882" key="GridCell.Tab.0.left" timestamp="1594431235093">
-      <screen x="0" y="0" width="1739" height="939" />
+    <state width="1740" height="884" key="GridCell.Tab.0.left" timestamp="1602738902632">
+      <screen x="1920" y="0" width="1739" height="939" />
     </state>
-    <state width="868" height="882" key="GridCell.Tab.0.left/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594376205761" />
+    <state width="1740" height="884" key="GridCell.Tab.0.left/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1602738902632" />
     <state width="868" height="882" key="GridCell.Tab.0.left/0.0.1739.939@0.0.1739.939" timestamp="1594431235093" />
-    <state width="868" height="882" key="GridCell.Tab.0.right" timestamp="1594431235093">
-      <screen x="0" y="0" width="1739" height="939" />
+    <state width="1740" height="884" key="GridCell.Tab.0.right" timestamp="1602738902632">
+      <screen x="1920" y="0" width="1739" height="939" />
     </state>
-    <state width="868" height="882" key="GridCell.Tab.0.right/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594376205761" />
+    <state width="1740" height="884" key="GridCell.Tab.0.right/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1602738902632" />
     <state width="868" height="882" key="GridCell.Tab.0.right/0.0.1739.939@0.0.1739.939" timestamp="1594431235093" />
     <state x="2013" y="93" width="1553" height="754" key="com.intellij.history.integration.ui.views.FileHistoryDialog" timestamp="1594351562817">
       <screen x="1920" y="0" width="1739" height="939" />
@@ -204,6 +214,17 @@
       <screen x="1920" y="0" width="1739" height="939" />
     </state>
     <state x="2452" y="200" width="672" height="678" key="search.everywhere.popup/0.0.1739.939/1920.0.1739.939@1920.0.1739.939" timestamp="1594352843607" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/publicApi.go</url>
+          <line>129</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
   <component name="debuggerHistoryManager">
     <expressions id="breakpointCondition">

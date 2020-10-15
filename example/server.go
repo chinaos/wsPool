@@ -103,6 +103,8 @@ func main() {
 				if err!=nil {
 					log.Println("发送消息出错", err.Error())
 				}*/
+				client.AddChannel("ttttt1")
+				client.RemoveChannel("ttttt1")
 
 			err:=wsPool.Broadcast(1,"wsPool.Broadcast"+client.Id+string(i),client.GetChannel()[0])
 			if err!=nil {
@@ -113,6 +115,7 @@ func main() {
 		//连接断开回调
 		client.OnClose(func() {
 			log.Printf("连接己经关闭%s",client.Id)
+
 		})
 		client.OnError(func(err error) {
 			log.Printf("连接%s错误信息：%s",client.Id,err.Error())

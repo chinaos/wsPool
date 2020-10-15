@@ -7,6 +7,7 @@ package wsPool
 import (
 	"errors"
 	"gitee.com/rczweb/wsPool/util/grpool"
+	"gitee.com/rczweb/wsPool/util/rwmutex"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
@@ -87,6 +88,7 @@ type Client struct {
 	onMessage func([]byte)
 	onMessageString func(string)
 	onClose func()
+	mu    rwmutex.RWMutex //读写锁对象
 }
 
 

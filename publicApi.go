@@ -2,7 +2,9 @@ package wsPool
 
 import (
 	"errors"
+	"gitee.com/rczweb/wsPool/util/garray"
 	"gitee.com/rczweb/wsPool/util/grpool"
+	"gitee.com/rczweb/wsPool/util/rwmutex"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"time"
@@ -35,6 +37,7 @@ func NewClient(conf *Config) *Client{
 		sendPing:make(chan int),
 		IsClose:true,
 		grpool:grpool.NewPool(conf.Goroutine),
+		mu:rwmutex.Create(true),
 	}
 	client.OnError(nil)
 	client.OnOpen(nil)
@@ -116,6 +119,29 @@ func (c *Client) GetLastSendTime() time.Time{ //获取连接最后发送消息�
 func (c *Client) GetConnectIp() string{ //获取连接客户端ip
 	return c.conn.RemoteAddr().String()
 }
+
+func (c *Client) AddChannel(chs ...string ) { //添加连接对像频道
+	if len(chs)==0 {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	arr:=garray.NewStrArrayFrom(c.channel,true)
+	arr=arr.Append(chs...)
+	c.channel=arr.Slice()
+}
+
+func (c *Client) RemoveChannel(ch string ) { //移除连接对像频道
+	if ch=="" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	arr:=garray.NewStrArrayFrom(c.channel,true)
+	arr.RemoveValue(ch)
+	c.channel=arr.Slice()
+}
+
 
 
 /*回调添加方法*/

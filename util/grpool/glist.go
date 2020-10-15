@@ -11,11 +11,12 @@ package grpool
 import (
 	"container/list"
 	"encoding/json"
+	"gitee.com/rczweb/wsPool/util/rwmutex"
 )
 
 type (
 	List struct {
-		mu   *RWMutex
+		mu   *rwmutex.RWMutex
 		list *list.List
 	}
 
@@ -25,7 +26,7 @@ type (
 // New creates and returns a new empty doubly linked list.
 func NewList(safe ...bool) *List {
 	return &List{
-		mu:   NewRWMutex(safe...),
+		mu:   rwmutex.New(safe...),
 		list: list.New(),
 	}
 }
@@ -39,7 +40,7 @@ func NewFrom(array []interface{}, safe ...bool) *List {
 		l.PushBack(v)
 	}
 	return &List{
-		mu:   NewRWMutex(safe...),
+		mu:   rwmutex.New(safe...),
 		list: l,
 	}
 }
@@ -393,7 +394,7 @@ func (l *List) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the interface UnmarshalJSON for json.Unmarshal.
 func (l *List) UnmarshalJSON(b []byte) error {
 	if l.mu == nil {
-		l.mu = NewRWMutex()
+		l.mu = rwmutex.New()
 		l.list = list.New()
 	}
 	l.mu.Lock()
